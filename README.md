@@ -1,154 +1,295 @@
-# AI Career Guide & Resume Analyzer
+# AI Career Command Center
 
-An AI-powered career assistant for students and job seekers. One single-page Flask web app with two features:
+AI Career Command Center is a Flask-based career intelligence workspace for students and job seekers. It combines deterministic resume scoring with Google Gemini insights, persistent career data, skill-gap analysis, roadmaps, coaching, and fact-constrained resume generation.
 
-1. **AI Career Guide** — a personalized 30-day career roadmap generated from your skills and target role, including skill-gap analysis, learning resources and job portals.
-2. **Resume Analyzer** — upload a PDF resume, pick a target role, and get a deterministic ATS score (0–100) with a full breakdown plus AI-generated strengths, weaknesses, missing skills, improvement suggestions and ATS checks.
+The project preserves a public, anonymous Career Guide and Resume Analyzer while adding an authenticated command-center experience for saved profiles, skills, resumes, progress, history, and generated documents.
 
-> "Build your career. Improve your resume. Get job-ready."
+Project links: [GitHub repository](https://github.com/SanjayKumar-Akula/ai-career-command-center) · [Live project](https://sanjaykumar-akula.github.io/ai-career-command-center/)
 
----
+## How It Works
 
-## ✨ Features
+1. Create an account and complete a career profile.
+2. Add skills manually or extract them from an uploaded PDF resume.
+3. Select a target role and compare saved skills with role requirements.
+4. Review deterministic skill gaps and optional Gemini guidance.
+5. Generate a personalized roadmap and track task progress.
+6. Upload improved resume versions and compare ATS history.
+7. Use the Career Coach and fact-constrained Resume Builder for next steps.
+8. Download an ATS-friendly PDF or DOCX generated from the user's saved facts.
 
-- **Single-page UI** — hero, AI Career Guide, Resume Analyzer and footer on one page; no navigation to other pages.
-- **Career Guide** — full name + skills + target role → career overview, skills analysis, skill gaps and a structured **Week 1–4 roadmap** (topics / tasks / practice).
-- **Resume Analyzer** — PDF upload → in-memory text extraction (PyMuPDF) → **deterministic ATS score** out of 100 with weighted factors:
+## Features
 
-  | Factor | Weight |
-  |---|---|
-  | Target-role keyword match | 30 |
-  | Required skills match | 20 |
-  | Experience / project relevance | 15 |
-  | Education | 10 |
-  | ATS formatting | 15 |
-  | Section completeness | 10 |
+### Public career tools
 
-- The same resume always produces the same score — the number is computed in Python, never invented by the AI. The AI only provides qualitative insights.
-- **Honest ATS checks** — only text-verifiable signals are reported. Tables/graphics/columns cannot be reliably detected from parsed PDF text, and the app says so explicitly.
-- **Curated links from local JSON** — learning resources (W3Schools, GeeksforGeeks, MDN, freeCodeCamp, official docs…), job portals (LinkedIn, Naukri, Indeed, Wellfound, Internshala) and resume builders (Canva, Novorésumé, Resume.io) are served from `data/resources.json`; the AI is never asked to invent URLs.
-- **Robust error handling** — friendly messages for empty forms, non-PDF files, oversized uploads, scanned PDFs, AI timeouts, rate limits, invalid API keys and malformed AI responses. Stack traces never reach the user.
-- **Security** — API key lives only on the backend (`.env`), never in HTML/CSS/JS; file type + size validation; `%PDF` magic-byte check; simple per-IP rate limiting; security headers; resumes processed in memory only.
-- **Polished, accessible UI** — responsive layout (desktop/tablet/mobile), loading skeletons, progress ring, badges, inline SVG icons, semantic HTML, labels, `aria-live` regions and keyboard-friendly controls.
+- Career Guide with full name, skills, target role, career overview, skill analysis, skill gaps, four-week roadmap, pro tips, and curated links.
+- Resume Analyzer for PDF uploads up to 5 MB.
+- Deterministic ATS score from 0 to 100.
+- AI-generated resume strengths, weaknesses, missing skills, improvements, and ATS checks.
+- Trusted learning resources, job portals, and resume-builder links from `data/resources.json`.
 
-## 🧰 Technology Stack
+### Authenticated command center
+
+- Signup, login, logout, password reset, persistent sessions, and CSRF-protected writes.
+- Persistent career profile with education, college, degree, graduation year, experience, target role, career goal, and job type.
+- Resume Vault with PDF storage, versioning, primary-resume selection, re-analysis, downloads, detected skills, and ownership checks.
+- Automatic deterministic skill extraction plus optional Gemini-assisted detection.
+- Skill management with normalized catalog entries, source labels, proficiency, add/remove/update operations, and skill-growth history.
+- Deterministic skill-gap analysis with cached AI enrichment.
+- Personalized four-week and extended roadmap generation with task states and progress percentage.
+- ATS analysis history and resume-to-resume comparison, including score, factor, keyword, skill, and gap changes.
+- AI Career Coach with private per-user conversation history and deterministic fallback responses.
+- Fact-constrained AI Resume Builder that does not invent employers, dates, qualifications, metrics, or achievements.
+- ATS-friendly PDF and DOCX generation from validated user-provided content.
+- Activity timeline and in-app notifications.
+- Responsive authenticated SaaS shell with dashboard, sidebar navigation, loading states, empty states, error states, progress indicators, and mobile navigation.
+
+## ATS Scoring
+
+The numeric ATS score is computed in Python and does not depend on Gemini. The same resume text and target role produce the same score.
+
+| Factor | Weight |
+|---|---:|
+| Target-role keyword match | 30 |
+| Required skills match | 20 |
+| Experience and project relevance | 15 |
+| Education | 10 |
+| ATS formatting signals | 15 |
+| Section completeness | 10 |
+| **Total** | **100** |
+
+The scorer uses role data from `data/role_keywords.json`, checks measurable text signals, and clearly marks limitations such as tables, graphics, and columns that cannot be reliably assessed from extracted PDF text.
+
+## AI Functionality
+
+Google Gemini is used server-side for:
+
+- Career Guide generation
+- Resume qualitative insights
+- Optional resume skill detection
+- Skill-gap explanations and practice guidance
+- Personalized roadmap generation
+- AI Career Coach replies
+- Resume Builder drafts
+
+The AI client requests structured JSON, supports fenced JSON responses, validates unexpected response structures, handles invalid JSON, applies bounded retry and fallback behavior for temporary provider failures, and returns safe user-facing errors. URLs are never invented by the AI; trusted URLs are merged from local JSON data.
+
+The browser never receives the Gemini API key and never calls Gemini directly.
+
+## Technology Stack
 
 | Layer | Technology |
 |---|---|
-| Frontend | HTML5, CSS3, vanilla JavaScript (fetch/AJAX) |
-| Backend | Python 3 + Flask |
-| AI | Google Gemini REST API (default) or any OpenAI-compatible API — switchable via `.env` |
-| PDF | PyMuPDF (`fitz`) text extraction |
-| Config | python-dotenv (`.env`), JSON data files |
+| Backend | Python 3, Flask |
+| Frontend | HTML5, CSS3, vanilla JavaScript, Fetch API |
+| AI | Google Gemini REST API with provider/model fallback handling |
+| ORM and database | Flask-SQLAlchemy, SQLite by default |
+| PDF extraction and PDF generation | PyMuPDF (`pymupdf`/`fitz`) |
+| DOCX generation | Local WordprocessingML ZIP generation; `python-docx` is included as a project dependency |
+| Configuration | `python-dotenv` and `.env` |
+| Static data | JSON role, skill, learning-resource, and job-portal catalogs |
 
-## 📁 Project Structure
+> ReportLab is not currently used by the implementation. PDF generation is implemented with PyMuPDF, so ReportLab is intentionally not listed as an active dependency.
 
-```
+## Project Structure
+
+```text
 10k coders/
-├── app.py                  # Flask app: routes, validation, error handlers
-├── requirements.txt        # Python dependencies
-├── .env.example            # environment variable template (copy to .env)
-├── .gitignore
+├── app.py                         # Flask app, legacy APIs, database and blueprint registration
+├── requirements.txt               # Python dependencies
 ├── README.md
+├── .env.example                   # Secret-free configuration template
+├── .gitignore                     # Ignores .env, database, uploads, logs and environments
+├── career_center.db               # Local SQLite database, created at runtime
 ├── data/
-│   ├── resources.json      # curated learning resources / job portals / resume builders
-│   └── role_keywords.json  # role → keywords/skills database for ATS scoring
+│   ├── resources.json             # Curated learning, job and resume-builder links
+│   └── role_keywords.json         # ATS roles, aliases, keywords, skills and education terms
+├── models/
+│   └── __init__.py                # SQLAlchemy models and additive database initialization
+├── routes/
+│   ├── __init__.py                # Blueprint and API registration
+│   ├── auth_api.py                # Signup, login, logout and password-reset APIs
+│   ├── auth_pages.py              # Authentication page routes
+│   ├── pages.py                   # Authenticated page routes
+│   ├── api_helpers.py             # API response, CSRF, rate-limit and error helpers
+│   ├── api_profile_skills.py      # Profile, skills and gap APIs
+│   ├── api_resumes.py             # Resume Vault, detection, comparison and download APIs
+│   ├── api_roadmap.py             # Roadmap, progress and resource APIs
+│   └── api_misc.py                # Dashboard, history, notifications, coach and builder APIs
 ├── services/
-│   ├── ai_client.py        # provider-agnostic AI calls + safe JSON parsing
-│   ├── career_guide.py     # career guide prompt + response shaping
-│   ├── resume_analyzer.py  # deterministic ATS scoring + AI insights
-│   ├── pdf_extractor.py    # PDF text extraction & cleaning
-│   ├── validation.py       # input validation & sanitisation
-│   ├── rate_limiter.py     # simple in-memory sliding-window limiter
-│   └── resources.py        # data/resources.json loader
-├── static/
-│   ├── css/style.css
-│   └── js/app.js
+│   ├── ai_client.py               # Gemini/OpenAI-compatible calls, retries and JSON parsing
+│   ├── career_guide.py             # Career Guide prompt and response shaping
+│   ├── resume_analyzer.py          # Deterministic ATS scoring and AI insights
+│   ├── resume_store.py             # Persistent resume versions and analyses
+│   ├── pdf_extractor.py            # PDF validation, extraction and text cleaning
+│   ├── resume_pdf.py               # PDF and DOCX document generation
+│   ├── resume_builder.py           # Fact-constrained resume drafting
+│   ├── skill_service.py            # Skill catalog, extraction, CRUD and growth
+│   ├── gap_engine.py               # Deterministic gaps and cached AI guidance
+│   ├── roadmap_service.py          # Roadmap generation and task progress
+│   ├── coach_service.py            # Private AI coach and fallback responses
+│   ├── user_service.py             # Password hashing, sessions and reset tokens
+│   ├── web_security.py             # Authentication decorators and CSRF protection
+│   ├── activity_service.py         # Activity timeline, notifications and readiness
+│   ├── resources.py                # Trusted JSON resource loader
+│   ├── validation.py               # Input and upload validation
+│   └── rate_limiter.py             # In-memory sliding-window rate limiter
 ├── templates/
-│   └── index.html          # the single page
-└── uploads/                # kept empty — resumes are processed in memory
+│   ├── index.html                  # Public Career Guide and Resume Analyzer
+│   ├── _app_base.html              # Authenticated application shell
+│   ├── login.html, signup.html     # Authentication screens
+│   ├── forgot_password.html
+│   ├── reset_password.html
+│   ├── dashboard.html, profile.html, settings.html
+│   ├── skills.html, resume.html, roadmap.html
+│   └── coach.html, history.html, resources.html
+├── static/
+│   ├── css/style.css                # Public-site styling
+│   ├── css/app.css                  # Authenticated SaaS styling
+│   └── js/                          # Shared shell, API, auth and page modules
+└── uploads/
+    └── .gitkeep                     # Runtime upload directory; public uploads are processed in memory
 ```
 
-## 🚀 Installation & Running (Windows PowerShell)
+## Local Installation and Running
+
+Windows PowerShell:
 
 ```powershell
-# 1. From the project folder
-cd "c:\Users\sujia\OneDrive\Desktop\10k coders"
-
-# 2. Create a virtual environment
+cd "C:\Users\sujia\OneDrive\Desktop\10k coders"
 python -m venv .venv
-
-# 3. Activate it
-.venv\Scripts\Activate.ps1
-
-# 4. Install dependencies
+.\.venv\Scripts\Activate.ps1
 pip install -r requirements.txt
-
-# 5. Create your .env (copy the template, then paste your real key inside)
 Copy-Item .env.example .env
 notepad .env
-
-# 6. Run the app
 python app.py
 ```
 
-Then open **http://127.0.0.1:5000** in your browser.
+Open:
 
-If PowerShell blocks script activation, run
-`Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass` first.
+- Public app: http://127.0.0.1:5000/
+- Login: http://127.0.0.1:5000/login
+- Dashboard: http://127.0.0.1:5000/dashboard
 
-## 🔐 Environment Variables
+If PowerShell blocks activation, use `Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass` for the current terminal session.
 
-Create `.env` (never commit it — it is git-ignored):
+## Environment Variables
 
-| Variable | Required | Description |
+Create `.env` locally from `.env.example`. Never commit `.env` or put a real key in README, HTML, JavaScript, or logs.
+
+```env
+AI_API_KEY=your_api_key_here
+AI_PROVIDER=gemini
+AI_MODEL=gemini-3.6-flash
+AI_TIMEOUT=75
+SECRET_KEY=generate-a-long-random-value
+PORT=5000
+FLASK_DEBUG=0
+SESSION_COOKIE_SECURE=0
+RATE_LIMIT_PER_MINUTE=12
+AUTH_RATE_LIMIT_PER_MINUTE=10
+DATA_RATE_LIMIT_PER_MINUTE=240
+AI_RATE_LIMIT_PER_MINUTE=20
+```
+
+Important configuration behavior:
+
+- `AI_API_KEY` is loaded by `python-dotenv` on the backend.
+- `AI_PROVIDER=gemini` selects Gemini.
+- `AI_MODEL` controls the primary model; the AI client can use supported fallback models for temporary failures.
+- `SESSION_COOKIE_SECURE=0` keeps local HTTP development working. Set it to `1` only when serving through HTTPS.
+- `DATABASE_URL` can override the default local SQLite database connection.
+- The `.env.example` file contains placeholders only.
+
+## API Overview
+
+All JSON APIs generally use:
+
+```json
+{
+  "success": true,
+  "data": {}
+}
+```
+
+Errors use a safe shape such as:
+
+```json
+{
+  "success": false,
+  "error": {"message": "...", "fields": {}}
+}
+```
+
+### Public APIs
+
+| Method | Path | Purpose |
 |---|---|---|
-| `AI_API_KEY` | yes* | Your AI provider API key. Stays on the server only. |
-| `AI_PROVIDER` | no | `gemini` (default) or `openai` (any OpenAI-compatible endpoint). |
-| `AI_MODEL` | no | Model name, e.g. `gemini-3.6-flash` / `gpt-4o-mini`. |
-| `AI_BASE_URL` | no | Custom base URL for OpenAI-compatible providers. |
-| `AI_TIMEOUT` | no | AI request timeout in seconds (default 60). |
-| `RATE_LIMIT_PER_MINUTE` | no | Per-IP requests per minute (default 12). |
-| `PORT` | no | Server port (default 5000). |
-| `SECRET_KEY` | no | Flask secret key (auto-generated if empty). |
-| `FLASK_DEBUG` | no | `1` to enable debug mode (development only). |
+| GET | `/api/health` | Service and AI configuration status |
+| POST | `/api/career-guide` | Generate a career plan from name, skills and target role |
+| POST | `/api/resume-analyzer` | Analyze a PDF and return ATS score plus insights |
 
-\* If `AI_API_KEY` is empty, the app falls back to `GEMINI_API_KEY` (for provider `gemini`) or `OPENAI_API_KEY` (for provider `openai`) from the system environment.
+### Authentication APIs
 
-## 🖱️ How to Use
+| Method | Path | Purpose |
+|---|---|---|
+| POST | `/api/auth/signup` | Create an account and establish a session |
+| POST | `/api/auth/login` | Authenticate an existing account |
+| POST | `/api/auth/logout` | End the current session |
+| GET | `/api/auth/me` | Return the current authenticated user |
+| POST | `/api/auth/forgot-password` | Create a password-reset request |
+| POST | `/api/auth/reset-password` | Redeem a reset token and set a new password |
 
-**Career Guide:** scroll to *AI Career Guide*, enter your full name, skill set (comma separated) and target role, then click **Generate Career Plan**. Your overview, skill gaps, 4-week roadmap, resources and job portals appear below the form — no page reload.
+### Authenticated page routes
 
-**Resume Analyzer:** scroll to *Resume Analyzer*, choose a **PDF** resume (max 5 MB), enter your target role and click **Analyze Resume**. The ATS score ring, factor breakdown, strengths, weaknesses, missing skills, improvement areas, ATS checks and job-portal/resume-builder links appear below the form.
+`/dashboard`, `/resume`, `/skills`, `/roadmap`, `/coach`, `/history`, `/resources`, `/profile`, and `/settings` require login. `/login`, `/signup`, `/forgot-password`, and `/reset-password/<token>` provide account screens.
 
-## 🔌 API Endpoints
+### Authenticated data APIs
 
-| Method | Path | Body | Returns |
-|---|---|---|---|
-| GET | `/` | — | The single-page UI |
-| GET | `/api/health` | — | `{ status, ai_configured, ai_provider }` |
-| POST | `/api/career-guide` | JSON `{ full_name, skills, target_role }` | Career overview, skills analysis, skill gaps, week 1–4 roadmap, tips + curated resources & job portals |
-| POST | `/api/resume-analyzer` | multipart/form-data `resume` (PDF) + `target_role` | ATS score + factor breakdown, strengths, weaknesses, missing skills, improvement areas, ATS checks, role match, keywords + curated links |
+| Area | Routes |
+|---|---|
+| Dashboard and history | `GET /api/dashboard`, `GET /api/history` |
+| Profile | `GET /api/profile`, `POST/PUT /api/profile` |
+| Skills | `GET /api/skills`, `GET /api/skills/catalog`, `GET /api/skills/growth`, `POST /api/skills`, `PUT/PATCH/DELETE /api/skills/<id>` |
+| Skill gaps | `GET /api/gaps?target_role=...` |
+| Resume Vault | `GET/POST /api/resumes`, `GET /api/resumes/<id>`, `POST /api/resumes/<id>/analyze`, `GET /api/resumes/<id>/download`, `DELETE /api/resumes/<id>`, `POST /api/resumes/<id>/primary` |
+| Resume skills | `GET/POST /api/resumes/<id>/detected` |
+| Resume comparison | `GET /api/resumes/compare?older=<id>&newer=<id>` |
+| Roadmap | `GET/POST /api/roadmap`, `POST /api/roadmap/task`, `GET /api/progress` |
+| Resources | `GET /api/resources` |
+| Notifications | `GET /api/notifications`, `POST /api/notifications/<id>/read`, `POST /api/notifications/read-all` |
+| Career Coach | `GET/POST/DELETE /api/coach` |
+| Resume Builder | `GET/POST/PUT/PATCH /api/builder`, `POST /api/builder/download` |
 
-All API responses use the shape `{ "success": true|false, "data": … | "error": { "message", "fields?" } }`.
+State-changing authenticated requests require the session CSRF token in the `X-CSRF-Token` header. The shared frontend API client supplies credentials and this header automatically.
 
-## 🛡️ Security Notes
+## Security
 
-- The API key is read from `.env` on the server; it is never rendered into the page, JS or CSS, and never logged.
-- Uploaded resumes are parsed **in memory** and discarded — nothing is written to disk.
-- Uploads are limited to PDF files (extension + `%PDF` magic bytes) and 5 MB.
-- Filenames are never used to build filesystem paths; upload streams are processed in memory only.
-- Simple per-IP sliding-window rate limiting protects the AI endpoints.
-- Security headers (`X-Content-Type-Options`, `X-Frame-Options`, `Referrer-Policy`) are set on every response; unexpected exceptions are logged server-side and never shown to users.
-- All AI-provided text is HTML-escaped before rendering (XSS protection).
+- API keys stay server-side in `.env` and are never sent to browser code.
+- Passwords use Werkzeug password hashing.
+- Sessions store a server-validated user ID and use HTTP-only, `SameSite=Lax` cookies.
+- `SESSION_COOKIE_SECURE` is configurable for HTTPS without breaking local HTTP development.
+- State-changing authenticated requests require CSRF protection.
+- User-owned data queries are scoped by authenticated `user_id`.
+- Password reset tokens are hashed, time-limited, and single-use.
+- Authentication, data, and AI endpoints have rate limiting.
+- Uploads require PDF extension, `%PDF` magic bytes, readable text, and a 5 MB limit.
+- Resume files are scoped to their owner in the Resume Vault.
+- Security headers include `X-Content-Type-Options`, `X-Frame-Options`, and `Referrer-Policy`.
+- User input and AI output are escaped before public frontend rendering to reduce XSS risk.
+- AI failures return friendly messages while technical diagnostics remain server-side.
 
-## 🔮 Future Improvements
+## Database
 
-- Support DOCX resumes alongside PDF.
-- Database storage for saved career plans / resume history (login system).
-- Streaming AI responses for faster perceived performance.
-- Redis-backed rate limiting for multi-worker deployments.
-- Unit + integration test suite (pytest) in CI.
-- Additional ATS heuristics (date parsing, section ordering).
+SQLite is the default local database at `career_center.db`. SQLAlchemy models cover users, career profiles, skills, user skills, resumes, resume analyses, roadmaps, progress, activities, notifications, coach messages, password reset tokens, skill history, cached gap guidance, and generated resumes.
+
+Database initialization is additive: missing tables and supported missing columns are created without dropping tables or deleting existing records. Production migration tooling is intentionally deferred for a later stage.
+
+## Project Status and Future Work
+
+The current repository contains the public tools and the first authenticated command-center experience. Possible future improvements include formal Alembic/Flask-Migrate migrations, a production database and object storage, distributed rate limiting, email delivery for password resets, account deletion/export, stronger production headers such as CSP, automated pytest coverage, and deployment-specific observability.
+
+## License and Project Context
+
+This repository is a college software project and portfolio application demonstrating Flask backend development, REST API design, authentication, database-backed workflows, deterministic scoring, AI integration, document processing, and responsive frontend engineering.
 
 
