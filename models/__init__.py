@@ -394,8 +394,12 @@ _ADDED_COLUMNS = {
 
 def init_db(app) -> None:
     """Bind SQLAlchemy, create missing tables, run safe migrations, seed data."""
+    default_db_path = os.path.join(
+        "/tmp/ai-career-command-center" if os.environ.get("VERCEL") else BASE_DIR,
+        "career_center.db",
+    )
     uri = os.environ.get("DATABASE_URL") or (
-        "sqlite:///" + os.path.join(BASE_DIR, "career_center.db").replace("\\", "/"))
+        "sqlite:///" + default_db_path.replace("\\", "/"))
     if uri.startswith("postgres://"):  # normalise legacy-style Postgres URLs
         uri = uri.replace("postgres://", "postgresql://", 1)
     app.config.setdefault("SQLALCHEMY_DATABASE_URI", uri)

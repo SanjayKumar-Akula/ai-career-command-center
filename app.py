@@ -28,12 +28,14 @@ from services.validation import (
 )
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-os.makedirs(os.path.join(BASE_DIR, "uploads"), exist_ok=True)
+RUNTIME_DIR = "/tmp/ai-career-command-center" if os.environ.get("VERCEL") else BASE_DIR
+UPLOAD_DIR = os.path.join(RUNTIME_DIR, "uploads")
+os.makedirs(UPLOAD_DIR, exist_ok=True)
 
 app = Flask(__name__)
 app.config["SECRET_KEY"] = os.environ.get("SECRET_KEY") or secrets.token_hex(32)
 app.config["MAX_CONTENT_LENGTH"] = MAX_RESUME_BYTES + 128 * 1024  # + headroom for form fields
-app.config["UPLOAD_FOLDER"] = os.path.join(BASE_DIR, "uploads")
+app.config["UPLOAD_FOLDER"] = UPLOAD_DIR
 # Session hardening for the authenticated area (additive; public pages unaffected).
 app.config.update(
     SESSION_COOKIE_HTTPONLY=True,
