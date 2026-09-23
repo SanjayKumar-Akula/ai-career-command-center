@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="AI Career Command Center — resume intelligence, skill gaps, roadmaps and an AI career coach.">
+  <title>{{ page_title }} · AI Career Command Center</title>
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%234f46e5'/%3E%3Cpath d='M20 44 32 18l12 26h-7l-5-11-5 11z' fill='white'/%3E%3C/svg%3E">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/app.css') }}">
+  {% block head %}{% endblock %}
+</head>
+<body class="app-body" data-page="{{ page_id }}" data-csrf="{{ csrf_token() }}">
+  <a class="skip-link" href="#page-main">Skip to main content</a>
+
+  <div class="app-layout">
+    <!-- ============================================================ SIDEBAR -->
+    <aside class="sidebar" id="sidebar" aria-label="Primary">
+      <div class="sidebar-brand">
+        <a href="/" class="brand-link" title="Home">
+          <svg width="26" height="26" viewBox="0 0 64 64" aria-hidden="true"><rect width="64" height="64" rx="14" fill="#4f46e5"/><path d="M20 44 32 18l12 26h-7l-5-11-5 11z" fill="#fff"/></svg>
+          <span>Career<span class="accent">AI</span></span>
+        </a>
+        <button class="sidebar-close" id="sidebar-close" aria-label="Close menu">&times;</button>
+      </div>
+
+      <nav class="sidebar-nav">
+        <p class="nav-label">Workspace</p>
+        <a href="/dashboard" class="{{ 'active' if page_id == 'dashboard' }}" data-nav="dashboard">
+          <span class="nav-ico" aria-hidden="true">▦</span> Dashboard</a>
+        <a href="/resume" class="{{ 'active' if page_id == 'resume' }}" data-nav="resume">
+          <span class="nav-ico" aria-hidden="true">▤</span> Resume</a>
+        <a href="/skills" class="{{ 'active' if page_id == 'skills' }}" data-nav="skills">
+          <span class="nav-ico" aria-hidden="true">✦</span> Skills</a>
+        <a href="/roadmap" class="{{ 'active' if page_id == 'roadmap' }}" data-nav="roadmap">
+          <span class="nav-ico" aria-hidden="true">◫</span> Career Roadmap</a>
+
+        <p class="nav-label">Intelligence</p>
+        <a href="/coach" class="{{ 'active' if page_id == 'coach' }}" data-nav="coach">
+          <span class="nav-ico" aria-hidden="true">☰</span> AI Career Coach</a>
+        <a href="/resources" class="{{ 'active' if page_id == 'resources' }}" data-nav="resources">
+          <span class="nav-ico" aria-hidden="true">◈</span> Jobs &amp; Resources</a>
+        <a href="/history" class="{{ 'active' if page_id == 'history' }}" data-nav="history">
+          <span class="nav-ico" aria-hidden="true">◷</span> History</a>
+
+        <p class="nav-label">Account</p>
+        <a href="/profile" class="{{ 'active' if page_id == 'profile' }}" data-nav="profile">
+          <span class="nav-ico" aria-hidden="true">◉</span> Profile</a>
+        <a href="/settings" class="{{ 'active' if page_id == 'settings' }}" data-nav="settings">
+          <span class="nav-ico" aria-hidden="true">⚙</span> Settings</a>
+      </nav>
+
+      <div class="sidebar-footer">
+        <button class="btn btn-ghost btn-block" id="logout-btn" type="button">Logout</button>
+        <p class="sidebar-note">API key stays on the server.</p>
+      </div>
+    </aside>
+    <div class="sidebar-scrim" id="sidebar-scrim" hidden></div>
+
+    <!-- ============================================================== MAIN -->
+    <div class="app-main">
+      <header class="topbar">
+        <button class="icon-btn" id="sidebar-toggle" aria-label="Open menu" aria-controls="sidebar">☰</button>
+        <div class="topbar-title">
+          <h1>{{ page_title }}</h1>
+        </div>
+        <div class="topbar-actions">
+          <div class="notif-wrap">
+            <button class="icon-btn" id="notif-toggle" aria-label="Notifications" aria-expanded="false">
+              🔔<span class="badge" id="notif-badge" hidden>0</span>
+            </button>
+            <div class="notif-panel" id="notif-panel" hidden>
+              <div class="notif-head">
+                <strong>Notifications</strong>
+                <button class="link-btn" id="notif-mark-all" type="button">Mark all read</button>
+              </div>
+              <ul class="notif-list" id="notif-list"><li class="empty">Loading…</li></ul>
+            </div>
+          </div>
+          <a class="user-chip" href="/profile" title="Your profile">
+            <span class="avatar" aria-hidden="true">{{ (session_user.full_name or '?')[0]|upper }}</span>
+            <span class="user-name">{{ session_user.full_name or 'Account' }}</span>
+          </a>
+        </div>
+      </header>
+
+      <main class="page" id="page-main" tabindex="-1">
+        {% block content %}{% endblock %}
+      </main>
+
+      <footer class="page-footer">
+        <span>AI Career Command Center</span>
+        <span class="sep">·</span>
+        <a href="/">Public site</a>
+      </footer>
+    </div>
+  </div>
+
+  <div class="toast-stack" id="toast-stack" aria-live="polite" aria-atomic="true"></div>
+
+  <script src="{{ url_for('static', filename='js/shell.js') }}" defer></script>
+  {% block scripts %}{% endblock %}
+</body>
+</html>

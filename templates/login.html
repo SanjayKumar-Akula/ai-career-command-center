@@ -1,0 +1,12 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Sign in · AI Career Command Center</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/app.css') }}">
+</head>
+<body class="auth-body">
+  <main class="auth-layout"><section class="auth-panel"><a class="auth-brand" href="/">Career<span>AI</span></a><p class="eyebrow">Career intelligence workspace</p><h1>Pick up where you left off.</h1><p class="auth-copy">Your resume progress, skills and next career moves in one focused workspace.</p><div class="auth-proof"><strong>Private by design</strong><span>Your profile and resume data stay scoped to your account.</span></div></section>
+  <section class="auth-card" aria-labelledby="auth-title"><a class="mobile-brand" href="/">Career<span>AI</span></a><h2 id="auth-title">Welcome back</h2><p class="card-sub">Sign in to your Career Command Center.</p><form id="login-form" novalidate><div class="field"><label for="email">Email</label><input id="email" name="email" type="email" autocomplete="email" required><p class="field-error" data-error="email"></p></div><div class="field"><label for="password">Password</label><input id="password" name="password" type="password" autocomplete="current-password" required><p class="field-error" data-error="password"></p></div><p class="form-error" id="form-error" hidden></p><button class="btn btn-primary btn-block btn-lg" type="submit"><span class="btn-label">Sign in</span></button></form><div class="auth-links"><a href="/forgot-password">Forgot password?</a><span>New here? <a href="/signup">Create an account</a></span></div></section></main>
+  <script src="{{ url_for('static', filename='js/api.js') }}" defer></script><script>window.AUTH_NEXT={{ next|tojson }};</script><script src="{{ url_for('static', filename='js/auth.js') }}" defer></script>
+</body></html>

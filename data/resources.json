@@ -1,0 +1,26 @@
+{
+  "learning_resources": [
+    { "name": "W3Schools", "url": "https://www.w3schools.com/", "description": "Beginner-friendly tutorials for web development and programming basics" },
+    { "name": "GeeksforGeeks", "url": "https://www.geeksforgeeks.org/", "description": "DSA, interview preparation and programming tutorials" },
+    { "name": "MDN Web Docs", "url": "https://developer.mozilla.org/", "description": "Official reference for HTML, CSS and JavaScript" },
+    { "name": "freeCodeCamp", "url": "https://www.freecodecamp.org/", "description": "Free hands-on certifications and coding practice" },
+    { "name": "Python Official Docs", "url": "https://docs.python.org/3/", "description": "Official Python documentation and tutorials" },
+    { "name": "Java Official Tutorials", "url": "https://docs.oracle.com/javase/tutorial/", "description": "Official Java documentation and tutorials" },
+    { "name": "SQLBolt", "url": "https://sqlbolt.com/", "description": "Interactive SQL lessons for beginners" },
+    { "name": "Kaggle Learn", "url": "https://www.kaggle.com/learn", "description": "Free micro-courses for data science and machine learning" },
+    { "name": "roadmap.sh", "url": "https://roadmap.sh/", "description": "Community-driven learning roadmaps for every tech role" },
+    { "name": "LeetCode", "url": "https://leetcode.com/", "description": "Coding interview practice problems" }
+  ],
+  "job_portals": [
+    { "name": "LinkedIn Jobs", "url": "https://www.linkedin.com/jobs/" },
+    { "name": "Naukri", "url": "https://www.naukri.com/" },
+    { "name": "Indeed", "url": "https://www.indeed.com/" },
+    { "name": "Wellfound", "url": "https://wellfound.com/" },
+    { "name": "Internshala", "url": "https://internshala.com/" }
+  ],
+  "resume_builders": [
+    { "name": "Canva Resume Builder", "url": "https://www.canva.com/create/resumes/" },
+    { "name": "Novor\u00e9sum\u00e9", "url": "https://novoresume.com/" },
+    { "name": "Resume.io", "url": "https://resume.io/" }
+  ]
+}

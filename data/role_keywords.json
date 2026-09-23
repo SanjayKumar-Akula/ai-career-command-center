@@ -1,0 +1,100 @@
+{
+  "education_keywords": [
+    "b.tech", "btech", "b.e", "bachelor", "b.sc", "bsc", "bca",
+    "m.tech", "mtech", "master", "m.sc", "msc", "mca", "mba",
+    "diploma", "university", "college", "cgpa", "gpa", "intermediate", "12th", "10th"
+  ],
+  "action_verbs": [
+    "developed", "built", "designed", "implemented", "optimized", "automated",
+    "created", "improved", "led", "managed", "deployed", "tested", "analyzed",
+    "reduced", "increased", "achieved", "collaborated", "maintained",
+    "integrated", "migrated", "engineered", "architected"
+  ],
+  "roles": {
+    "software developer": {
+      "aliases": ["sde", "software engineer", "programmer", "developer", "associate software engineer"],
+      "keywords": ["data structures", "algorithms", "problem solving", "object oriented programming", "python", "java", "c++", "sql", "git", "rest api", "debugging", "unit testing", "agile", "version control"],
+      "skills": ["python", "java", "c++", "sql", "git", "docker", "aws", "rest api", "unit testing", "linux", "data structures", "algorithms"]
+    },
+    "web developer": {
+      "aliases": ["website developer", "web development"],
+      "keywords": ["html", "css", "javascript", "responsive design", "dom", "rest api", "git", "bootstrap", "jquery", "php", "mysql", "web performance", "accessibility", "browser compatibility"],
+      "skills": ["html", "css", "javascript", "react", "node.js", "mysql", "git", "bootstrap", "php", "rest api", "jquery", "wordpress"]
+    },
+    "frontend developer": {
+      "aliases": ["ui developer", "react developer", "front end developer"],
+      "keywords": ["html", "css", "javascript", "typescript", "react", "vue", "angular", "responsive design", "dom manipulation", "sass", "webpack", "accessibility", "rest api", "state management"],
+      "skills": ["html", "css", "javascript", "typescript", "react", "vue", "angular", "sass", "webpack", "git", "jest", "figma"]
+    },
+    "backend developer": {
+      "aliases": ["back end developer", "server side developer", "api developer"],
+      "keywords": ["rest api", "sql", "node.js", "django", "flask", "spring boot", "java", "python", "microservices", "docker", "authentication", "caching", "message queue", "unit testing"],
+      "skills": ["python", "java", "node.js", "sql", "mongodb", "postgresql", "redis", "docker", "rest api", "git", "linux", "aws"]
+    },
+    "full stack developer": {
+      "aliases": ["mean stack developer", "mern stack developer"],
+      "keywords": ["html", "css", "javascript", "react", "node.js", "express", "mongodb", "sql", "rest api", "git", "deployment", "docker", "authentication", "responsive design"],
+      "skills": ["html", "css", "javascript", "react", "node.js", "express", "mongodb", "sql", "git", "docker", "rest api", "aws"]
+    },
+    "python developer": {
+      "aliases": ["django developer", "flask developer"],
+      "keywords": ["python", "django", "flask", "rest api", "sql", "postgresql", "orm", "pandas", "numpy", "unit testing", "celery", "docker", "git", "linux"],
+      "skills": ["python", "django", "flask", "sql", "postgresql", "mongodb", "rest api", "docker", "git", "pandas", "numpy", "unit testing"]
+    },
+    "data analyst": {
+      "aliases": ["business data analyst", "analytics", "bi analyst"],
+      "keywords": ["sql", "excel", "python", "power bi", "tableau", "dashboards", "data visualization", "statistics", "pandas", "data cleaning", "reports", "etl", "kpi", "exploratory data analysis"],
+      "skills": ["sql", "excel", "python", "power bi", "tableau", "pandas", "numpy", "statistics", "data visualization", "matplotlib", "jupyter", "git"]
+    },
+    "data scientist": {
+      "aliases": ["ml scientist", "ai scientist"],
+      "keywords": ["python", "machine learning", "statistics", "pandas", "numpy", "scikit-learn", "sql", "deep learning", "tensorflow", "pytorch", "data visualization", "exploratory data analysis", "nlp", "feature engineering"],
+      "skills": ["python", "sql", "pandas", "numpy", "scikit-learn", "tensorflow", "pytorch", "statistics", "matplotlib", "seaborn", "jupyter", "git"]
+    },
+    "machine learning engineer": {
+      "aliases": ["ml engineer", "mlops engineer", "ai engineer"],
+      "keywords": ["python", "machine learning", "deep learning", "tensorflow", "pytorch", "scikit-learn", "mlops", "docker", "kubernetes", "model deployment", "sql", "etl", "feature engineering", "aws"],
+      "skills": ["python", "tensorflow", "pytorch", "scikit-learn", "sql", "docker", "kubernetes", "aws", "git", "pandas", "numpy", "linux"]
+    },
+    "android developer": {
+      "aliases": ["mobile developer", "kotlin developer", "flutter developer"],
+      "keywords": ["kotlin", "java", "android", "jetpack compose", "xml", "sqlite", "room database", "rest api", "material design", "gradle", "play store", "firebase", "mvvm", "debugging"],
+      "skills": ["kotlin", "java", "android studio", "sqlite", "firebase", "rest api", "git", "jetpack compose", "material design", "xml", "gradle", "room database"]
+    },
+    "devops engineer": {
+      "aliases": ["site reliability engineer", "sre", "platform engineer"],
+      "keywords": ["linux", "docker", "kubernetes", "ci/cd", "jenkins", "terraform", "ansible", "aws", "azure", "bash", "monitoring", "prometheus", "git", "shell scripting"],
+      "skills": ["linux", "docker", "kubernetes", "jenkins", "terraform", "ansible", "aws", "azure", "bash", "git", "prometheus", "python"]
+    },
+    "cloud engineer": {
+      "aliases": ["aws engineer", "cloud architect", "azure engineer"],
+      "keywords": ["aws", "azure", "gcp", "linux", "docker", "kubernetes", "terraform", "lambda", "s3", "ec2", "iam", "vpc", "python", "shell scripting"],
+      "skills": ["aws", "azure", "gcp", "linux", "docker", "kubernetes", "terraform", "python", "git", "bash", "iam", "monitoring"]
+    },
+    "qa engineer": {
+      "aliases": ["software tester", "test engineer", "sdet", "quality assurance"],
+      "keywords": ["manual testing", "automation testing", "selenium", "test cases", "junit", "pytest", "api testing", "postman", "bug reporting", "jira", "regression testing", "sql", "agile", "test plans"],
+      "skills": ["selenium", "java", "python", "pytest", "postman", "jira", "sql", "junit", "test cases", "api testing", "git", "agile"]
+    },
+    "cybersecurity analyst": {
+      "aliases": ["security analyst", "soc analyst", "information security"],
+      "keywords": ["network security", "vulnerability assessment", "penetration testing", "burp suite", "wireshark", "nmap", "siem", "firewalls", "linux", "incident response", "owasp", "encryption", "ethical hacking", "python"],
+      "skills": ["linux", "networking", "wireshark", "nmap", "burp suite", "siem", "python", "owasp", "firewalls", "encryption", "incident response", "git"]
+    },
+    "ui/ux designer": {
+      "aliases": ["ui designer", "ux designer", "product designer"],
+      "keywords": ["figma", "wireframing", "prototyping", "user research", "usability testing", "design systems", "typography", "color theory", "accessibility", "interaction design", "personas", "information architecture"],
+      "skills": ["figma", "adobe xd", "sketch", "wireframing", "prototyping", "user research", "usability testing", "design systems", "accessibility", "html", "css", "typography"]
+    },
+    "business analyst": {
+      "aliases": ["ba", "product analyst"],
+      "keywords": ["requirements gathering", "stakeholder management", "sql", "excel", "power bi", "user stories", "process mapping", "jira", "documentation", "gap analysis", "agile", "scrum", "data analysis", "communication"],
+      "skills": ["sql", "excel", "power bi", "tableau", "jira", "user stories", "process mapping", "documentation", "agile", "communication", "data analysis", "requirements gathering"]
+    }
+  },
+  "generic": {
+    "aliases": [],
+    "keywords": ["communication", "teamwork", "problem solving", "projects", "internship", "certification", "git", "sql", "python", "data structures", "time management", "learning"],
+    "skills": ["python", "java", "sql", "javascript", "html", "css", "git", "excel", "communication", "teamwork", "problem solving"]
+  }
+}

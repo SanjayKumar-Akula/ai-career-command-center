@@ -1,0 +1,187 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="AI-powered career assistant for students and job seekers — personalized career roadmaps and AI resume analysis with ATS scoring.">
+  <title>AI Career Guide &amp; Resume Analyzer</title>
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Cdefs%3E%3ClinearGradient id='g' x1='0' y1='0' x2='1' y2='1'%3E%3Cstop offset='0' stop-color='%234f46e5'/%3E%3Cstop offset='1' stop-color='%2306b6d4'/%3E%3C/linearGradient%3E%3C/defs%3E%3Crect width='64' height='64' rx='14' fill='url(%23g)'/%3E%3Cpath d='M20 44 32 18l12 26h-7l-5-11-5 11z' fill='white'/%3E%3C/svg%3E">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body id="top">
+  <a class="skip-link" href="#career-guide">Skip to main content</a>
+
+  <header class="site-header">
+    <div class="container header-inner">
+      <a class="brand" href="#top" aria-label="AI Career Guide — home">
+        <svg class="brand-icon" width="30" height="30" viewBox="0 0 64 64" aria-hidden="true" focusable="false">
+          <defs><linearGradient id="lg" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#6366f1"/><stop offset="1" stop-color="#06b6d4"/></linearGradient></defs>
+          <rect width="64" height="64" rx="14" fill="url(#lg)"/>
+          <path d="M20 44 32 18l12 26h-7l-5-11-5 11z" fill="#fff"/>
+        </svg>
+        <span class="brand-name">Career<span class="accent">AI</span></span>
+      </a>
+      <nav class="site-nav" aria-label="Primary navigation">
+        <a href="#career-guide">Career Guide</a>
+        <a href="#resume-analyzer">Resume Analyzer</a>
+        <span class="health-pill" id="health-pill" role="status" aria-live="polite" title="Service status">
+          <span class="dot" aria-hidden="true"></span><span id="health-text">Checking…</span>
+        </span>
+      </nav>
+    </div>
+  </header>
+
+  <main>
+    <!-- ================================================= HERO -->
+    <section class="hero">
+      <div class="container hero-inner">
+        <p class="eyebrow">✦ AI-powered career assistant for students &amp; job seekers</p>
+        <h1>AI Career Guide &amp; <span class="gradient-text">Resume Analyzer</span></h1>
+        <p class="tagline">Build your career. Improve your resume. Get job-ready.</p>
+        <p class="hero-sub">
+          Get a personalized 30-day roadmap from your skills + target role, then upload your
+          resume for an ATS score, strengths, missing skills and concrete improvement suggestions.
+        </p>
+        <div class="hero-actions">
+          <a class="btn btn-primary btn-lg" href="#career-guide">Generate Career Plan</a>
+          <a class="btn btn-ghost btn-lg" href="#resume-analyzer">Analyze My Resume</a>
+        </div>
+        <ul class="hero-chips">
+          <li>30-day roadmap</li>
+          <li>ATS score &amp; breakdown</li>
+          <li>Skill gap analysis</li>
+          <li>Curated job portals</li>
+        </ul>
+      </div>
+    </section>
+
+    <!-- ================================================= AI CAREER GUIDE -->
+    <section class="feature-section" id="career-guide" aria-labelledby="career-title">
+      <div class="container">
+        <div class="section-head">
+          <span class="section-badge">01 · Career Guide</span>
+          <h2 id="career-title">AI Career Guide</h2>
+          <p class="section-desc">
+            Get a personalized career roadmap based on your skills and target role. Discover what
+            to learn, how to prepare, useful resources, and where to apply for jobs.
+          </p>
+        </div>
+
+        <div class="card form-card">
+          <form id="career-form" novalidate aria-describedby="career-hint">
+            <div class="form-grid">
+              <div class="field">
+                <label for="full-name">Full Name <span class="req" aria-hidden="true">*</span></label>
+                <input type="text" id="full-name" name="full_name" placeholder="Enter your full name"
+                       autocomplete="name" maxlength="100" required>
+                <p class="field-error" id="full-name-error" hidden></p>
+              </div>
+              <div class="field">
+                <label for="skills">Skill Set <span class="req" aria-hidden="true">*</span></label>
+                <input type="text" id="skills" name="skills" maxlength="400" required
+                       placeholder="Python, Java, SQL, HTML, CSS, JavaScript">
+                <p class="field-error" id="skills-error" hidden></p>
+              </div>
+              <div class="field">
+                <label for="career-role">Target Role <span class="req" aria-hidden="true">*</span></label>
+                <input type="text" id="career-role" name="target_role" maxlength="80" required
+                       placeholder="Software Developer" list="role-suggestions">
+                <p class="field-error" id="career-role-error" hidden></p>
+              </div>
+            </div>
+            <div class="form-actions">
+              <button type="submit" class="btn btn-primary" id="career-submit">
+                <span class="btn-label">Generate Career Plan</span>
+              </button>
+              <p class="form-hint" id="career-hint">Your API key stays on the server — the browser never sees it.</p>
+            </div>
+            <p class="form-error" id="career-form-error" role="alert" hidden></p>
+          </form>
+        </div>
+
+        <div id="career-result" class="result-area" aria-live="polite"></div>
+      </div>
+    </section>
+
+    <!-- ================================================= RESUME ANALYZER -->
+    <section class="feature-section alt" id="resume-analyzer" aria-labelledby="resume-title">
+      <div class="container">
+        <div class="section-head">
+          <span class="section-badge">02 · Resume Analyzer</span>
+          <h2 id="resume-title">Resume Analyzer</h2>
+          <p class="section-desc">
+            Upload your resume and get an AI-powered analysis based on your target role, including
+            ATS compatibility, strengths, weaknesses, missing skills, and improvement suggestions.
+          </p>
+        </div>
+
+        <div class="card form-card">
+          <form id="resume-form" novalidate aria-describedby="resume-hint">
+            <div class="form-grid">
+              <div class="field">
+                <label for="resume-input">Resume <span class="req" aria-hidden="true">*</span> <span class="label-note">(PDF)</span></label>
+                <label class="file-drop" id="resume-drop">
+                  <svg class="upload-icon" width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/>
+                  </svg>
+                  <span class="file-name" id="resume-file-name">Choose PDF</span>
+                  <span class="file-sub">PDF only · max 5 MB</span>
+                  <input type="file" id="resume-input" name="resume" accept=".pdf,application/pdf" class="sr-only">
+                </label>
+                <p class="field-error" id="resume-file-error" hidden></p>
+              </div>
+              <div class="field">
+                <label for="resume-role">Target Role <span class="req" aria-hidden="true">*</span></label>
+                <input type="text" id="resume-role" name="target_role" maxlength="80" required
+                       placeholder="Software Developer" list="role-suggestions">
+                <p class="field-error" id="resume-role-error" hidden></p>
+              </div>
+            </div>
+            <datalist id="role-suggestions">
+              <option value="Software Developer"></option>
+              <option value="Web Developer"></option>
+              <option value="Frontend Developer"></option>
+              <option value="Backend Developer"></option>
+              <option value="Full Stack Developer"></option>
+              <option value="Python Developer"></option>
+              <option value="Data Analyst"></option>
+              <option value="Data Scientist"></option>
+              <option value="Machine Learning Engineer"></option>
+              <option value="Android Developer"></option>
+              <option value="DevOps Engineer"></option>
+              <option value="Cloud Engineer"></option>
+              <option value="QA Engineer"></option>
+              <option value="Cybersecurity Analyst"></option>
+              <option value="UI/UX Designer"></option>
+              <option value="Business Analyst"></option>
+            </datalist>
+            <div class="form-actions">
+              <button type="submit" class="btn btn-primary" id="resume-submit">
+                <span class="btn-label">Analyze Resume</span>
+              </button>
+              <p class="form-hint" id="resume-hint">Your resume is processed in memory only — it is never stored on the server.</p>
+            </div>
+            <p class="form-error" id="resume-form-error" role="alert" hidden></p>
+          </form>
+        </div>
+
+        <div id="resume-result" class="result-area" aria-live="polite"></div>
+      </div>
+    </section>
+  </main>
+
+  <footer class="site-footer">
+    <div class="container footer-inner">
+      <div>
+        <p class="footer-brand">Career<span class="accent">AI</span> — AI Career Guide &amp; Resume Analyzer</p>
+        <p class="footer-note">A college CSE project demonstrating a full-stack Flask + AI integration.
+          Built for students and job seekers.</p>
+      </div>
+      <p class="footer-note">Powered by Flask, Python &amp; the Gemini API · Links open in a new tab.</p>
+    </div>
+  </footer>
+
+  <script src="{{ url_for('static', filename='js/app.js') }}" defer></script>
+</body>
+</html>
+

@@ -1,0 +1,29 @@
+# Environment variables / secrets — never commit these
+.env
+.env.*
+
+# Virtual environments
+venv/
+.venv/
+env/
+
+# Python cache / bytecode
+__pycache__/
+*.pyc
+*.pyo
+.pytest_cache/
+
+# Uploaded resumes (resumes are processed in memory, but keep the dir ignored)
+uploads/*
+!uploads/.gitkeep
+
+# OS / editor noise
+.DS_Store
+Thumbs.db
+
+# Local database
+career_center.db
+
+# Local tool/runtime files
+.refact/
+*.log
