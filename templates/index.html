@@ -27,20 +27,11 @@
         <span class="health-pill" id="health-pill" role="status" aria-live="polite" title="Service status">
           <span class="dot" aria-hidden="true"></span><span id="health-text">Checking…</span>
         </span>
-        <!-- Account entry points. These use the existing auth routes:
-             auth_pages.login / auth_pages.signup / pages.dashboard / pages.profile. -->
+        <!-- Public entry points only. The authenticated workspace is not linked
+             from the landing page; /login and /signup both return here. -->
         <span class="nav-auth">
-          {% if session_user %}
-            <a class="nav-user" href="{{ url_for('pages.profile') }}" title="Your account">
-              <span class="avatar" aria-hidden="true">{{ (session_user.full_name or '?')[0]|upper }}</span>
-              <span class="nav-user-name">{{ session_user.full_name or 'Account' }}</span>
-            </a>
-            <a class="btn btn-primary nav-auth-btn" href="{{ url_for('pages.dashboard') }}">Dashboard</a>
-            <button class="btn btn-ghost nav-auth-btn" type="button" id="nav-logout">Log out</button>
-          {% else %}
-            <a class="btn btn-ghost nav-auth-btn" href="{{ url_for('auth_pages.login') }}">Login</a>
-            <a class="btn btn-primary nav-auth-btn" href="{{ url_for('auth_pages.signup') }}">Sign Up</a>
-          {% endif %}
+          <a class="btn btn-ghost nav-auth-btn" href="{{ url_for('auth_pages.login') }}">Login</a>
+          <a class="btn btn-primary nav-auth-btn" href="{{ url_for('auth_pages.signup') }}">Sign Up</a>
         </span>
       </nav>
     </div>
