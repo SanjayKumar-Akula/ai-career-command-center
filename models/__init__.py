@@ -12,11 +12,14 @@ Design rules:
 from __future__ import annotations
 
 import json
+import logging
 import os
 import re
 from datetime import datetime
 
 from flask_sqlalchemy import SQLAlchemy
+
+logger = logging.getLogger(__name__)
 
 db = SQLAlchemy()
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -386,29 +389,152 @@ _ADDED_COLUMNS = {
     # table: {column: "<DDL>"} — additive migrations for future versions.
     # Only ever ADDs columns; existing data is never modified or dropped.
     "resumes": {
-        "is_primary": "BOOLEAN NOT NULL DEFAULT 0",
+        "is_primary": "BOOLEAN NOT NULL DEFAULT FALSE",
         "detected_skills": "TEXT DEFAULT ''",
     },
 }
 
 
-def init_db(app) -> None:
-    """Bind SQLAlchemy, create missing tables, run safe migrations, seed data."""
-    default_db_path = os.path.join(
-        "/tmp/ai-career-command-center" if os.environ.get("VERCEL") else BASE_DIR,
-        "career_center.db",
+def normalize_database_url(url: str | None) -> str:
+    """Normalize PostgreSQL / Neon connection strings for SQLAlchemy & psycopg2.
+
+    Replaces legacy `postgres://` prefixes with `postgresql://`.
+    Strips accidental leading/trailing whitespace.
+    """
+    if not url:
+        return ""
+    cleaned = url.strip()
+    if cleaned.startswith("postgres://"):
+        cleaned = "postgresql://" + cleaned[len("postgres://"):]
+    return cleaned
+
+
+# ---------------------------------------------------------------------------
+# Alembic / Flask-Migrate bookkeeping.
+# ---------------------------------------------------------------------------
+# The single revision that creates the full schema (migrations/versions/
+# 129e6097126e_initial_schema.py). Kept in sync with that filename.
+BASE_REVISION = "129e6097126e"
+
+# Tables that must already exist before a database counts as "created", so we
+# never stamp a database that has not actually been built yet.
+_SCHEMA_SIGNATURE = ("users", "skills")
+
+
+def current_alembic_revision():
+    """Read-only lookup of the revision stored in ``alembic_version``.
+
+    Returns ``None`` when the version table is missing or empty, and never
+    raises, so it is safe to call during application start-up.
+    """
+    from alembic.runtime.migration import MigrationContext
+
+    try:
+        with db.engine.connect() as conn:
+            return MigrationContext.configure(conn).get_current_revision()
+    except Exception:  # pragma: no cover - catalog/permission issues
+        return None
+
+
+def _schema_table_names() -> set:
+    """Read-only set of table names present in the connected database."""
+    from sqlalchemy import inspect
+
+    try:
+        return set(inspect(db.engine).get_table_names())
+    except Exception:  # pragma: no cover
+        return set()
+
+
+def _reconcile_alembic_version() -> str:
+    """Record the current revision for a schema that already exists.
+
+    ``init_db()`` builds tables with ``db.create_all()``, which issues raw DDL
+    and never records a revision. Any database created that way (an existing
+    local SQLite file, or a production database whose tables were built on first
+    boot) has no ``alembic_version`` row, so ``flask db upgrade`` thinks nothing
+    has been applied and replays the initial revision -- which fails with
+    ``DuplicateTable: relation "skills" already exists``.
+
+    This closes that gap safely: when the tables exist but Alembic has no
+    revision recorded, the database is stamped at ``BASE_REVISION``. Stamping
+    only inserts one row into ``alembic_version``; no table is created, altered,
+    dropped or emptied, so existing data is never touched.
+
+    Returns a short status string for logging.
+    """
+    tables = _schema_table_names()
+    if not set(_SCHEMA_SIGNATURE).issubset(tables):
+        return "skipped (schema not created yet)"
+
+    revision = current_alembic_revision()
+    if revision is not None:
+        return f"already at {revision}"
+
+    from flask_migrate import stamp
+
+    stamp(revision=BASE_REVISION)
+    logger.warning(
+        "Alembic had no revision recorded although the schema already existed; "
+        "stamped it at %s instead of replaying CREATE TABLE (no data touched).",
+        BASE_REVISION,
     )
-    uri = os.environ.get("DATABASE_URL") or (
-        "sqlite:///" + default_db_path.replace("\\", "/"))
-    if uri.startswith("postgres://"):  # normalise legacy-style Postgres URLs
-        uri = uri.replace("postgres://", "postgresql://", 1)
+    return f"stamped {BASE_REVISION}"
+
+
+def init_db(app) -> None:
+    """Bind SQLAlchemy, configure pooling, create missing tables, and seed data.
+
+    Safe and non-destructive:
+    - Never drops tables or deletes data.
+    - Uses SQLite for zero-config local development when DATABASE_URL is unset.
+    - Connects to PostgreSQL (including Neon) when DATABASE_URL is provided.
+    - Configures connection health checks (pool_pre_ping & pool_recycle).
+    - Keeps Alembic's revision in step with the schema, so a database created by
+      db.create_all() is stamped instead of being re-created by `flask db upgrade`.
+    """
+    raw_url = os.environ.get("DATABASE_URL")
+    uri = normalize_database_url(raw_url)
+
+    if not uri:
+        default_db_path = os.path.join(
+            "/tmp/ai-career-command-center" if os.environ.get("VERCEL") else BASE_DIR,
+            "career_center.db",
+        )
+        uri = "sqlite:///" + default_db_path.replace("\\", "/")
+
     app.config.setdefault("SQLALCHEMY_DATABASE_URI", uri)
     app.config.setdefault("SQLALCHEMY_TRACK_MODIFICATIONS", False)
+
+    # In serverless/cloud environments, Neon PostgreSQL drops idle connections.
+    # pool_pre_ping tests connection liveness; pool_recycle prevents stale pool handles.
+    if uri.startswith(("postgresql://", "postgresql+")):
+        engine_options = app.config.setdefault("SQLALCHEMY_ENGINE_OPTIONS", {})
+        engine_options.setdefault("pool_pre_ping", True)
+        engine_options.setdefault("pool_recycle", 300)
+
     db.init_app(app)
+
+    # Initialize Flask-Migrate CLI extension if not already registered
+    try:
+        from flask_migrate import Migrate
+        if "migrate" not in app.extensions:
+            Migrate(app, db)
+    except Exception:
+        pass
 
     with app.app_context():
         db.create_all()  # creates only missing tables — never drops data
         _ensure_sqlite_columns()
+        # db.create_all() bypasses Alembic, so record the revision for databases
+        # that were built that way (see _reconcile_alembic_version). Never fatal.
+        try:
+            status = _reconcile_alembic_version()
+        except Exception as exc:  # pragma: no cover - app must still boot
+            db.session.rollback()
+            status = f"failed ({exc.__class__.__name__})"
+            logger.warning("Could not reconcile the Alembic revision: %s", exc)
+        logger.info("Alembic revision state: %s", status)
         _seed_skill_catalog()
         db.session.commit()
 
@@ -431,8 +557,12 @@ def _ensure_sqlite_columns() -> None:
         for column, ddl in columns.items():
             if column in existing:
                 continue
+            # SQLite supports 0/1 for booleans; Postgres prefers FALSE/TRUE
+            col_ddl = ddl
+            if driver.startswith("sqlite") and "DEFAULT FALSE" in col_ddl:
+                col_ddl = col_ddl.replace("DEFAULT FALSE", "DEFAULT 0")
             try:
-                db.session.execute(db.text(f"ALTER TABLE {table} ADD COLUMN {column} {ddl}"))
+                db.session.execute(db.text(f"ALTER TABLE {table} ADD COLUMN {column} {col_ddl}"))
                 db.session.commit()
             except Exception:  # pragma: no cover - racing/concurrent create
                 db.session.rollback()
