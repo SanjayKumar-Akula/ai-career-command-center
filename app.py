@@ -1,7 +1,7 @@
 """AI Career Guide & Resume Analyzer — Flask application.
 
 Routes:
-    GET  /                     -> CareerAI landing page (home for every visitor)
+    GET  /                     -> login entry point; landing page once signed in
     GET  /api/health           -> service + AI configuration health check
     POST /api/career-guide     -> AI-generated career roadmap (JSON body)
     POST /api/resume-analyzer  -> AI resume analysis (multipart/form-data)
@@ -12,7 +12,7 @@ import os
 import secrets
 from datetime import timedelta
 
-from flask import Flask, jsonify, render_template, request
+from flask import Flask, jsonify, redirect, render_template, request, url_for
 
 from services.ai_client import AIServiceError, get_provider_name, is_ai_configured
 from services.career_guide import generate_career_plan
@@ -73,13 +73,16 @@ def _rate_limited() -> bool:
 
 @app.get("/")
 def index():
-    """The CareerAI landing page — the home page for every visitor.
+    """The CareerAI landing page — the home page once you are signed in.
 
-    Signed-out visitors get Login / Sign Up; signed-in visitors get account
-    access, a Dashboard link and Log out. The Career Guide and Resume Analyzer
-    tools on this page stay public and functional for everyone.
+    A signed-out visitor is sent to the existing Login page first, so the login
+    screen is the entry point; after authenticating, `/` renders this landing
+    page exactly as before. The Career Guide and Resume Analyzer tools on it
+    stay public and functional for everyone.
     """
-    return render_template("index.html")
+    if current_user():
+        return render_template("index.html")
+    return redirect(url_for("auth_pages.login"))
 
 
 @app.get("/api/health")
