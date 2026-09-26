@@ -97,6 +97,10 @@
 
   <div class="toast-stack" id="toast-stack" aria-live="polite" aria-atomic="true"></div>
 
+  <!-- api.js defines window.ccApi, the single shared API helper used by shell.js
+       and every page script. It must load first (defer scripts run in document
+       order) or those scripts throw "ccApi is not defined". -->
+  <script src="{{ url_for('static', filename='js/api.js') }}" defer></script>
   <script src="{{ url_for('static', filename='js/shell.js') }}" defer></script>
   {% block scripts %}{% endblock %}
 </body>
