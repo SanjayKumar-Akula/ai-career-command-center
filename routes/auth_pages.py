@@ -16,12 +16,34 @@ def _redirect_if_authed():
     return None
 
 
+def _safe_next(target: str | None) -> str:
+    """Keep post-login redirects on this site.
+
+    `next` is attacker-controllable (it comes from the query string) and is handed
+    to the browser as `window.AUTH_NEXT`, so only same-origin relative paths are
+    allowed through. Anything absolute ("https://evil.example"), protocol
+    relative ("//evil.example"), backslash-smuggled ("/\\evil.example") or
+    containing control characters is discarded so auth.js falls back to
+    "/dashboard" instead of redirecting a freshly signed-in user off-site.
+    """
+    if not target:
+        return ""
+    candidate = target.strip()
+    if not candidate.startswith("/"):
+        return ""
+    if candidate.startswith("//") or candidate.startswith("/\\"):
+        return ""
+    if "\\" in candidate or any(ch in candidate for ch in "\r\n\t\x00"):
+        return ""
+    return candidate
+
+
 @auth_pages_bp.get("/login")
 def login():
     early = _redirect_if_authed()
     if early:
         return early
-    return render_template("login.html", next=request.args.get("next", ""))
+    return render_template("login.html", next=_safe_next(request.args.get("next")))
 
 
 @auth_pages_bp.get("/signup")
