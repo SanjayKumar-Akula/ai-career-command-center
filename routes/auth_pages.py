@@ -10,9 +10,14 @@ auth_pages_bp = Blueprint("auth_pages", __name__)
 
 
 def _redirect_if_authed():
+    """An authenticated visitor has no business on the auth pages.
+
+    The landing page ("/") is the home page for every session, so send them
+    there rather than past it to the workspace.
+    """
     user = current_user()
     if user:
-        return redirect(url_for("pages.dashboard"))
+        return redirect(url_for("index"))
     return None
 
 
@@ -23,8 +28,8 @@ def _safe_next(target: str | None) -> str:
     to the browser as `window.AUTH_NEXT`, so only same-origin relative paths are
     allowed through. Anything absolute ("https://evil.example"), protocol
     relative ("//evil.example"), backslash-smuggled ("/\\evil.example") or
-    containing control characters is discarded so auth.js falls back to
-    "/dashboard" instead of redirecting a freshly signed-in user off-site.
+    containing control characters is discarded so auth.js falls back to the
+    landing page ("/") instead of redirecting a freshly signed-in user off-site.
     """
     if not target:
         return ""
