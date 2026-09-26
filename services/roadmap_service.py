@@ -136,6 +136,10 @@ def generate_roadmap(user, role: str | None = None) -> dict:
                     task_state[key] = old_state[key]
 
     row = previous or CareerRoadmap(user_id=user.id, target_role=role)
+    if previous is None:
+        # A newly constructed row is not in the session yet; without this it is
+        # silently dropped on commit (no id, nothing to read back on reload).
+        db.session.add(row)
     row.source = source
     row.roadmap_json = dump_json({"roadmap": data["roadmap"],
                                   "extended": data.get("extended", {}),
@@ -197,6 +201,9 @@ def set_task_state(user, roadmap_id: int, task_key: str, state: str) -> dict:
         state_map.pop(task_key, None)
     else:
         state_map[task_key] = state
+    # The edits above touch a freshly parsed dict, so the column must be written
+    # back explicitly or the completion is lost on commit.
+    row.roadmap_json = dump_json(data)
     _recalculate_progress(row)
     db.session.commit()
     return _serialize(row)

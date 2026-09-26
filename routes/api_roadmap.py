@@ -71,8 +71,10 @@ def register(app) -> None:
             return fail("Unknown task state.", 400)
         try:
             row = set_task_state(g.user, int(roadmap_id), task_key, state)
-        except ValueError as exc:
+        except LookupError as exc:      # set_task_state raises LookupError
             return fail(str(exc), 404)
+        except ValueError as exc:
+            return fail(str(exc), 400)
         return ok({"roadmap": row, "progress": row.get("progress_percent", 0)})
 
     @app.get("/api/progress")
