@@ -27,11 +27,17 @@
         <span class="health-pill" id="health-pill" role="status" aria-live="polite" title="Service status">
           <span class="dot" aria-hidden="true"></span><span id="health-text">Checking…</span>
         </span>
-        <!-- Public entry points only. The authenticated workspace is not linked
-             from the landing page; /login and /signup both return here. -->
+        <!-- Auth entry points driven by the existing session_user template
+             global: anonymous visitors get the public Login / Sign Up links,
+             signed-in visitors get Logout (the same /api/auth/logout + CSRF
+             flow the authenticated app shell uses). -->
         <span class="nav-auth">
-          <a class="btn btn-ghost nav-auth-btn" href="{{ url_for('auth_pages.login') }}">Login</a>
-          <a class="btn btn-primary nav-auth-btn" href="{{ url_for('auth_pages.signup') }}">Sign Up</a>
+          {% if session_user %}
+            <button class="btn btn-ghost nav-auth-btn" type="button" id="nav-logout">Logout</button>
+          {% else %}
+            <a class="btn btn-ghost nav-auth-btn" href="{{ url_for('auth_pages.login') }}">Login</a>
+            <a class="btn btn-primary nav-auth-btn" href="{{ url_for('auth_pages.signup') }}">Sign Up</a>
+          {% endif %}
         </span>
       </nav>
     </div>
