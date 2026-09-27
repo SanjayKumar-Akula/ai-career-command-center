@@ -32,4 +32,40 @@ function renderProgress(h, stats) {
   return head + grid + `<div class="data-list">${rows.join("")}</div>`;
 }
 
-async function load() { try { const result = await ccApi.get("/api/dashboard"); const d = result.data; $("dashboard-metrics").innerHTML = [metric("ATS score", d.stats.ats_score || "—", d.stats.ats_score ? "Latest resume" : "Upload a resume to begin"), metric("Skills", d.stats.skills, "Saved capabilities"), metric("Skill gaps", d.stats.skill_gaps, d.stats.target_role || "Set a target role"), metric("Resumes", d.stats.resumes, "Saved versions"), metric("Roadmap", `${d.stats.roadmap_progress}%`, "Completion"), metric("Target role", d.stats.target_role || "Not set", "Career direction")].join(""); const readiness = d.readiness || {}; $("readiness-card").innerHTML = `<div class="ring-wrap"><div class="ring" style="--pct:${readiness.readiness || 0};--ring-color:var(--primary)" data-label="${readiness.readiness || 0}"></div><div><strong>${readiness.readiness || 0}/100 readiness</strong><p class="muted-block">ATS ${readiness.components?.ats || 0} · Skills ${readiness.components?.skills || 0} · Roadmap ${readiness.components?.roadmap || 0}</p></div></div>`; $("dashboard-insight").textContent = d.insight || "Your next best move will appear as your profile develops."; $("dashboard-activity").innerHTML = d.recent_activity?.length ? `<ul class="data-list">${d.recent_activity.map(x => `<li class="data-row"><span><strong>${esc(x.message)}</strong><small>${new Date(x.created_at).toLocaleString()}</small></span></li>`).join("")}</ul>` : empty("No activity yet", "Upload a resume or add a skill to start your timeline.", ["/resume", "Open Resume Vault"]); $("dashboard-resumes").innerHTML = d.latest_resumes?.length ? `<ul class="data-list">${d.latest_resumes.map(x => `<li class="data-row"><span><strong>${esc(x.filename)}</strong><small>Version ${x.version} · ATS ${x.ats_score ?? "—"}</small></span><a href="/resume">View</a></li>`).join("")}</ul>` : empty("No resume yet", "Upload your first resume to unlock Career Intelligence.", ["/resume", "Upload resume"]); const progressBox = $("dashboard-progress"); if (progressBox) progressBox.innerHTML = renderProgress(d.history, d.stats); $("dashboard-state").hidden = true; $("dashboard-content").hidden = false; } catch (error) { $("dashboard-state").className = "form-error"; $("dashboard-state").textContent = error.message; } } load(); })();
+/* "Current resume" — the newest (or primary) resume the dashboard already
+   returns. Every value comes from the existing /api/dashboard payload and the
+   download link points at the existing secure backend endpoint, which keeps its
+   own authentication and ownership checks. The file is never fetched in JS. */
+const resumeId = x => { const n = Number(x && x.id); return Number.isInteger(n) && n > 0 ? n : null; };
+const dayLabel = iso => { if (!iso) return ""; const d = new Date(iso); return isNaN(d.getTime()) ? "" : d.toLocaleDateString(); };
+const downloadUrl = id => `/api/resumes/${id}/download`;
+const canDownload = x => resumeId(x) !== null && x.has_file !== false;
+const pickCurrentResume = list => (list || []).find(x => x && x.is_primary) || (list || [])[0] || null;
+
+function renderCurrentResume(d) {
+  const box = $("current-resume-content");
+  if (!box) return;
+  const resume = pickCurrentResume(d.latest_resumes);
+  const id = resumeId(resume);
+  if (!resume || id === null) {
+    box.innerHTML = empty("No resume yet", "Upload your first resume to unlock Career Intelligence.", ["/resume", "Upload resume"]);
+    return;
+  }
+  const analysis = (d.history && d.history.current) || null;
+  // Use the stored analysis date when it belongs to this very resume.
+  const analysedOn = (analysis && analysis.resume_id === id) ? dayLabel(analysis.created_at) : "";
+  const when = analysedOn || dayLabel(resume.created_at) || dayLabel(resume.updated_at);
+  const ats = (resume.ats_score === null || resume.ats_score === undefined) ? "—" : `${resume.ats_score}/100`;
+  const facts = [`Version ${resume.version ?? "—"}`, `ATS ${ats}`]
+    .concat(when ? [`Analysed ${when}`] : []).join(" · ");
+  const action = canDownload(resume)
+    ? `<a class="btn btn-primary" href="${downloadUrl(id)}" download>Download resume</a>`
+    : `<span class="metric-note">The original file is no longer available.</span>`;
+  const badges = [resume.is_primary ? tag("Primary", "green") : "", resume.target_role ? tag(resume.target_role, "blue") : ""].filter(Boolean).join(" ");
+  const details = badges
+    ? `<div class="data-list"><div class="data-row"><span>${badges}</span><a class="btn btn-outline btn-sm" href="/resume">View all resumes</a></div></div>`
+    : `<div class="data-list"><div class="data-row"><span></span><a class="btn btn-outline btn-sm" href="/resume">View all resumes</a></div></div>`;
+  box.innerHTML = `<div class="data-list"><div class="data-row"><span><strong>${esc(resume.filename)}</strong><small>${esc(facts)}</small></span>${action}</div></div>` + details;
+}
+
+async function load() { try { const result = await ccApi.get("/api/dashboard"); const d = result.data; $("dashboard-metrics").innerHTML = [metric("ATS score", d.stats.ats_score || "—", d.stats.ats_score ? "Latest resume" : "Upload a resume to begin"), metric("Skills", d.stats.skills, "Saved capabilities"), metric("Skill gaps", d.stats.skill_gaps, d.stats.target_role || "Set a target role"), metric("Resumes", d.stats.resumes, "Saved versions"), metric("Roadmap", `${d.stats.roadmap_progress}%`, "Completion"), metric("Target role", d.stats.target_role || "Not set", "Career direction")].join(""); const readiness = d.readiness || {}; $("readiness-card").innerHTML = `<div class="ring-wrap"><div class="ring" style="--pct:${readiness.readiness || 0};--ring-color:var(--primary)" data-label="${readiness.readiness || 0}"></div><div><strong>${readiness.readiness || 0}/100 readiness</strong><p class="muted-block">ATS ${readiness.components?.ats || 0} · Skills ${readiness.components?.skills || 0} · Roadmap ${readiness.components?.roadmap || 0}</p></div></div>`; $("dashboard-insight").textContent = d.insight || "Your next best move will appear as your profile develops."; renderCurrentResume(d); $("dashboard-activity").innerHTML = d.recent_activity?.length ? `<ul class="data-list">${d.recent_activity.map(x => `<li class="data-row"><span><strong>${esc(x.message)}</strong><small>${new Date(x.created_at).toLocaleString()}</small></span></li>`).join("")}</ul>` : empty("No activity yet", "Upload a resume or add a skill to start your timeline.", ["/resume", "Open Resume Vault"]); $("dashboard-resumes").innerHTML = d.latest_resumes?.length ? `<ul class="data-list">${d.latest_resumes.map(x => { const rid = resumeId(x); const action = canDownload(x) ? `<a href="${downloadUrl(rid)}" download>Download</a>` : `<a href="/resume">View</a>`; return `<li class="data-row"><span><strong>${esc(x.filename)}</strong><small>Version ${x.version} · ATS ${x.ats_score ?? "—"}</small></span>${action}</li>`; }).join("")}</ul>` : empty("No resume yet", "Upload your first resume to unlock Career Intelligence.", ["/resume", "Upload resume"]); const progressBox = $("dashboard-progress"); if (progressBox) progressBox.innerHTML = renderProgress(d.history, d.stats); $("dashboard-state").hidden = true; $("dashboard-content").hidden = false; } catch (error) { $("dashboard-state").className = "form-error"; $("dashboard-state").textContent = error.message; } } load(); })();
