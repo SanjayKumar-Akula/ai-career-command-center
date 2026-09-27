@@ -12,12 +12,12 @@ auth_pages_bp = Blueprint("auth_pages", __name__)
 def _redirect_if_authed():
     """An authenticated visitor has no business on the auth pages.
 
-    The landing page ("/") is the home page for every session, so send them
-    there rather than past it to the workspace.
+    The landing page ("/home") is the destination for every signed-in session,
+    so send them there rather than to the entry page.
     """
     user = current_user()
     if user:
-        return redirect(url_for("index"))
+        return redirect(url_for("home"))
     return None
 
 

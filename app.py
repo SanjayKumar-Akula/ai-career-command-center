@@ -1,7 +1,8 @@
 """AI Career Guide & Resume Analyzer — Flask application.
 
 Routes:
-    GET  /                     -> login entry point; landing page once signed in
+    GET  /                     -> Login page (website entry point)
+    GET  /home                 -> CareerAI landing page
     GET  /api/health           -> service + AI configuration health check
     POST /api/career-guide     -> AI-generated career roadmap (JSON body)
     POST /api/resume-analyzer  -> AI resume analysis (multipart/form-data)
@@ -12,7 +13,7 @@ import os
 import secrets
 from datetime import timedelta
 
-from flask import Flask, jsonify, redirect, render_template, request, url_for
+from flask import Flask, jsonify, render_template, request
 
 from services.ai_client import AIServiceError, get_provider_name, is_ai_configured
 from services.career_guide import generate_career_plan
@@ -73,16 +74,23 @@ def _rate_limited() -> bool:
 
 @app.get("/")
 def index():
-    """The CareerAI landing page — the home page once you are signed in.
+    """The Login page is the website entry point, for every visitor.
 
-    A signed-out visitor is sent to the existing Login page first, so the login
-    screen is the entry point; after authenticating, `/` renders this landing
-    page exactly as before. The Career Guide and Resume Analyzer tools on it
-    stay public and functional for everyone.
+    It is rendered directly (not redirected to /login) so that an already
+    signed-in visitor sees the same entry screen instead of being bounced, and
+    so there is no redirect loop between "/" and "/login".
     """
-    if current_user():
-        return render_template("index.html")
-    return redirect(url_for("auth_pages.login"))
+    return render_template("login.html", next="")
+
+
+@app.get("/home")
+def home():
+    """The CareerAI landing page, reached after login/signup and from /login.
+
+    The page itself is unchanged; it still offers Login / Sign Up and the
+    public Career Guide and Resume Analyzer tools.
+    """
+    return render_template("index.html")
 
 
 @app.get("/api/health")
