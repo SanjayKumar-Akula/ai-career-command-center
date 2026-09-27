@@ -262,7 +262,13 @@ def call_ai(prompt: str, system=None, *, temperature: float = 0.4, timeout=None)
                         cfg, prompt, system, temperature, effective_timeout, model=model)
                 except AIServiceError as exc:
                     last_error = exc
-                    if exc.status not in (404, 429, 500, 502, 503, 504):
+                    if exc.status == 429:
+                        # Quota is exhausted for this key/project: it applies to
+                        # every model, so trying the fallbacks would only spend
+                        # more of the user's time. Fail fast and let the caller
+                        # use its existing fallback response.
+                        raise
+                    if exc.status not in (404, 500, 502, 503, 504):
                         raise
                     logger.warning(
                         "Gemini model attempt unavailable: status=%s model=%s",
@@ -289,7 +295,10 @@ def call_ai(prompt: str, system=None, *, temperature: float = 0.4, timeout=None)
                 continue
             raise failure
         except AIServiceError as exc:
-            if exc.status in (429, 503) and attempt < RETRY_ATTEMPTS:
+            if exc.status == 503 and attempt < RETRY_ATTEMPTS:
+                # A provider outage is worth one short retry. A 429 quota error
+                # is NOT retried here: waiting or re-sending cannot create quota,
+                # so the user would simply stare at a spinner for extra seconds.
                 time.sleep(RETRY_BACKOFF_SECONDS)
                 continue
             raise

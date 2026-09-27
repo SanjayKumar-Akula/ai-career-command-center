@@ -22,17 +22,21 @@ NO_ANALYSIS = "Upload your first resume to start tracking your progress over tim
 NEEDS_PREVIOUS = "Complete another resume analysis to see your progress over time."
 
 
-def build_history(user, roadmap=None) -> dict:
+def build_history(user, roadmap=None, *, skill_count=None, skill_map=None) -> dict:
     """The ``history`` block of GET /api/dashboard for the session user only.
 
     ``roadmap`` is the row the endpoint has already loaded; passing it in keeps
-    the dashboard to one roadmap query. Every query below filters on ``user.id``,
-    so another account's resumes, skills, analyses or roadmap can never leak.
+    the dashboard to one roadmap query. ``skill_count`` and ``skill_map`` are the
+    same idea for the user's skills — the endpoint already counts and loads them.
+    Omit any of them and that value is read here exactly as before. Every query
+    below filters on ``user.id``, so another account's resumes, skills, analyses
+    or roadmap can never leak.
     """
     current, previous = latest_two_analyses(user)
     cut_off = previous.created_at if previous else None
 
-    skills = _skill_progress(user, cut_off)
+    skills = _skill_progress(user, cut_off, skill_count=skill_count,
+                             skill_map=skill_map)
     if current is not None and previous is not None:
         delta = diff_analyses(previous, current)
         ats_delta = delta["score_delta"]
@@ -105,14 +109,18 @@ def _factor_progress(previous, current) -> list:
             for item in factor_comparison(previous, current)]
 
 
-def _skill_progress(user, cut_off) -> dict:
+def _skill_progress(user, cut_off, skill_count=None, skill_map=None) -> dict:
     """Skill totals now, plus what SkillHistory recorded since the cut-off.
 
     The history log is append-only and written by every skill change
     (``added`` / ``updated`` / ``removed``), so the earlier total can be rebuilt
     from it — nothing is deleted, modified or stored twice.
+
+    ``skill_count`` / ``skill_map`` are optional pre-computed values from the
+    caller; without them they are read here exactly as before.
     """
-    current_total = UserSkill.query.filter_by(user_id=user.id).count()
+    current_total = (UserSkill.query.filter_by(user_id=user.id).count()
+                     if skill_count is None else skill_count)
     if cut_off is None:
         return {"current_total": current_total, "previous_total": None,
                 "delta": None, "added": [], "removed": []}
@@ -129,7 +137,7 @@ def _skill_progress(user, cut_off) -> dict:
         first_seen.setdefault(name, row.change_type)
         latest[name] = row.change_type
 
-    present = set(user_skill_map(user))
+    present = set(user_skill_map(user) if skill_map is None else skill_map)
     added = sorted(name for name, kind in latest.items() if kind == "added")
     removed = sorted(name for name, kind in latest.items() if kind == "removed")
     # Rebuild the earlier total from the same log: a skill first logged as

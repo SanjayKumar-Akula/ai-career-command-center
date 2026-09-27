@@ -5,6 +5,7 @@ from __future__ import annotations
 import logging
 
 from models import Skill, SkillHistory, UserSkill, db
+from sqlalchemy.orm import contains_eager
 from services.ai_client import AIServiceError, call_ai, parse_ai_json
 from services.resume_analyzer import _contains_term, _norm
 
@@ -38,12 +39,14 @@ def _record_history(user, skill_name: str, from_value: int, to_value: int,
 
 def skill_growth(user, limit: int = 12) -> dict:
     """Recent skill changes plus the strongest movers (for the dashboard)."""
+    # One read of the (already ordered) log serves both the "changes" window and
+    # the full-history deltas — previously the same rows were read twice.
     rows = (SkillHistory.query.filter_by(user_id=user.id)
-            .order_by(SkillHistory.created_at.desc()).limit(limit).all())
-    changes = [row.to_dict() for row in rows]
+            .order_by(SkillHistory.created_at.desc()).all())
+    changes = [row.to_dict() for row in rows[:limit]]
 
     deltas: dict = {}
-    for row in SkillHistory.query.filter_by(user_id=user.id).all():
+    for row in rows:
         deltas[row.skill_name] = deltas.get(row.skill_name, 0) + (
             (row.to_value or 0) - (row.from_value or 0))
     movers = sorted(
@@ -146,7 +149,10 @@ def promote_detected_skills(user, names) -> dict:
 
 
 def list_user_skills(user) -> list:
+    # contains_eager fills row.skill from the JOIN; without it to_dict() would
+    # lazy-load one query per skill.
     rows = (UserSkill.query.filter_by(user_id=user.id)
+            .options(contains_eager(UserSkill.skill))
             .join(Skill).order_by(Skill.category, Skill.name).all())
     return [row.to_dict() for row in rows]
 
@@ -184,8 +190,14 @@ def remove_user_skill(user, uskill_id: int) -> bool:
 
 
 def user_skill_map(user) -> dict:
-    """{lowercase skill name: proficiency} for fast comparisons."""
-    rows = UserSkill.query.filter_by(user_id=user.id).join(Skill).all()
+    """{lowercase skill name: proficiency} for fast comparisons.
+
+    ``contains_eager`` makes the JOIN populate ``row.skill`` in the same round
+    trip. Without it the relationship lazy-loads once per row, so a user with
+    N skills cost N extra queries on every gap analysis. Same rows, one query.
+    """
+    rows = (UserSkill.query.filter_by(user_id=user.id)
+            .options(contains_eager(UserSkill.skill)).join(Skill).all())
     return {row.skill.name.lower(): row.proficiency for row in rows if row.skill}
 
 

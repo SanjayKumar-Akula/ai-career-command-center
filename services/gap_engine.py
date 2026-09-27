@@ -20,8 +20,13 @@ logger = logging.getLogger("gap_engine")
 STRONG_THRESHOLD = 65  # proficiency % considered "strong"
 
 
-def compute_gap_analysis(user, target_role: str | None = None) -> dict:
-    """Deterministic gap analysis for the user's current target role."""
+def compute_gap_analysis(user, target_role: str | None = None, owned: dict | None = None) -> dict:
+    """Deterministic gap analysis for the user's current target role.
+
+    ``owned`` is an optional pre-computed ``user_skill_map(user)`` result, so a
+    caller that already read the skills (e.g. the dashboard) does not read them
+    again. Omit it and the skills are loaded here exactly as before.
+    """
     role = (target_role or "").strip()
     if not role:
         profile = getattr(user, "profile", None)
@@ -32,7 +37,8 @@ def compute_gap_analysis(user, target_role: str | None = None) -> dict:
 
     entry, matched_role = match_role(role)
     required = entry.get("skills", [])
-    owned = user_skill_map(user)
+    if owned is None:
+        owned = user_skill_map(user)
 
     strong, developing = [], []
     required_lower = {s.lower() for s in required}

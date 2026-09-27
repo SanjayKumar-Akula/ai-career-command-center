@@ -30,17 +30,23 @@ def register(app) -> None:
         from models import CareerRoadmap, Resume, UserSkill
         from services.dashboard_service import build_history
         from services.gap_engine import compute_gap_analysis
-        from services.skill_service import skill_growth
+        from services.skill_service import skill_growth, user_skill_map
 
         user = g.user
-        readiness = career_readiness(user)
+        # Load each row ONCE and hand it to the helpers below. They all used to
+        # re-query the same latest resume, latest roadmap, skill count and skill
+        # map, which made this endpoint the slowest read in the app.
         resumes = Resume.query.filter_by(user_id=user.id) \
             .order_by(Resume.created_at.desc()).all()
         skill_count = UserSkill.query.filter_by(user_id=user.id).count()
         roadmap = (CareerRoadmap.query.filter_by(user_id=user.id)
                    .order_by(CareerRoadmap.updated_at.desc()).first())
+        skill_map = user_skill_map(user)
+        gap = compute_gap_analysis(user, owned=skill_map)
 
-        gap = compute_gap_analysis(user)
+        readiness = career_readiness(
+            user, gap=gap, latest_resume=resumes[0] if resumes else None,
+            roadmap=roadmap)
         insight = _ai_insight(readiness, gap, roadmap, resumes, skill_count)
 
         return ok({
@@ -64,7 +70,8 @@ def register(app) -> None:
             # Additive key: previous-vs-current career history. Aggregation lives
             # in services/dashboard_service.py; every existing key above is
             # untouched, so older clients keep working unchanged.
-            "history": build_history(user, roadmap),
+            "history": build_history(user, roadmap, skill_count=skill_count,
+                                     skill_map=skill_map),
         })
 
     # --------------------------------------------------------------- history

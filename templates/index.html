@@ -199,6 +199,7 @@
       if (!button) return;
       button.addEventListener("click", function () {
         button.disabled = true;
+        if (window.ccBusy) window.ccBusy(button, true, "Signing out…");
         fetch("/api/auth/logout", {
           method: "POST",
           headers: { "X-CSRF-Token": document.body.dataset.csrf || "" },
@@ -208,7 +209,7 @@
             if (!response.ok) throw new Error("logout failed");
             window.location.assign("/");
           })
-          .catch(function () { button.disabled = false; });
+          .catch(function () { if (window.ccBusy) window.ccBusy(button, false); });
       });
     })();
   </script>

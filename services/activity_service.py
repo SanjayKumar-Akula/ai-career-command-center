@@ -63,19 +63,27 @@ def generate_gap_notification(user, gap_count: int, role: str) -> None:
         notify(user, f"You have {gap_count} important skill gaps for {role}.", "warning")
 
 
-def career_readiness(user) -> dict:
+def career_readiness(user, *, gap=None, latest_resume=None, roadmap=None) -> dict:
     """Composite 0-100 readiness score (deterministic):
     40% latest ATS score, 40% average skill proficiency vs role requirements,
-    20% roadmap progress."""
+    20% roadmap progress.
+
+    ``gap``, ``latest_resume`` and ``roadmap`` are optional. ``GET /api/dashboard``
+    has already loaded all three, so it passes them in and the same rows are not
+    read a second time. Called without them, each value is loaded exactly as
+    before, so the result is identical either way.
+    """
     from models import CareerRoadmap
     from services.gap_engine import compute_gap_analysis
 
-    latest = (Resume.query.filter_by(user_id=user.id)
-              .order_by(Resume.created_at.desc()).first())
-    ats = latest.ats_score if latest and latest.ats_score is not None else 0
+    if latest_resume is None:
+        latest_resume = (Resume.query.filter_by(user_id=user.id)
+                         .order_by(Resume.created_at.desc()).first())
+    ats = latest_resume.ats_score if latest_resume and latest_resume.ats_score is not None else 0
     ats_component = ats * 0.4
 
-    gap = compute_gap_analysis(user)
+    if gap is None:
+        gap = compute_gap_analysis(user)
     if gap["has_role"]:
         required = gap["required_count"] or 1
         covered = (len(gap["strong"]) + 0.5 * len(gap["developing"])) / required
@@ -87,8 +95,9 @@ def career_readiness(user) -> dict:
         skill_component = (min(len(skills), 10) / 10) * 40
         gaps_count, role = 0, ""
 
-    roadmap = (CareerRoadmap.query.filter_by(user_id=user.id)
-               .order_by(CareerRoadmap.updated_at.desc()).first())
+    if roadmap is None:
+        roadmap = (CareerRoadmap.query.filter_by(user_id=user.id)
+                   .order_by(CareerRoadmap.updated_at.desc()).first())
     roadmap_component = ((roadmap.progress_percent if roadmap else 0) / 100) * 20
 
     readiness = round(ats_component + skill_component + roadmap_component)

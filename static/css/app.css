@@ -394,3 +394,19 @@ a:hover { text-decoration: underline; }
 }
 
 
+
+/* ---------------------------------------------------------------------
+   Shared button loading animation (driven by ccBusy in static/js/api.js).
+   A fixed-size ring keeps the button from resizing when it appears, and
+   the slowed rotation honours reduced-motion preferences.
+   --------------------------------------------------------------------- */
+.cc-spin {
+  display: inline-block; width: 1em; height: 1em; flex: 0 0 auto;
+  vertical-align: -0.14em; border: 2px solid currentColor;
+  border-right-color: transparent; border-radius: 50%;
+  opacity: .9; animation: cc-spin-rotate .7s linear infinite;
+}
+@keyframes cc-spin-rotate { to { transform: rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) {
+  .cc-spin { animation-duration: 2.4s; }
+}

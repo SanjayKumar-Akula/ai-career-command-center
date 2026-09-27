@@ -42,10 +42,10 @@ const downloadUrl = id => `/api/resumes/${id}/download`;
 const canDownload = x => resumeId(x) !== null && x.has_file !== false;
 const pickCurrentResume = list => (list || []).find(x => x && x.is_primary) || (list || [])[0] || null;
 
-/* Button busy state for the actions that make a request. Uses the existing
-   disabled + aria-busy pattern, blocks a double click, and always restores the
-   button's original text. */
+/* Button busy state for the actions that make a request. Delegates to the
+   shared ccBusy helper (spinner, aria-busy, width pin, always restored). */
 const busyButton = (btn, on, busyText) => {
+  if (typeof ccBusy === "function") { ccBusy(btn, on, busyText); return; }
   if (!btn) return;
   if (on) {
     if (!btn.dataset.label) btn.dataset.label = btn.textContent;

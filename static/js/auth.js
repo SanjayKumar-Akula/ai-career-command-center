@@ -4,21 +4,11 @@
   const $ = (id) => document.getElementById(id);
   const formError = (message) => { const el = $("form-error"); if (el) { el.textContent = message || ""; el.hidden = !message; } };
   const fieldErrors = (fields) => Object.entries(fields || {}).forEach(([key, value]) => { const el = document.querySelector(`[data-error="${key}"]`); if (el) el.textContent = value; });
+  /* One shared loading state (ccBusy in api.js): spinner + label while in
+     flight, disabled to block a double submit, always restored afterwards. */
   const busy = (form, on, busyText) => {
-    const button = form.querySelector("button[type=submit]");
-    if (!button) return;
-    const label = button.querySelector(".btn-label") || button;
-    if (on) {
-      // Remember the original label once, so it can be restored afterwards.
-      if (!button.dataset.label) button.dataset.label = label.textContent;
-      button.disabled = true;                       // blocks a double submit
-      button.setAttribute("aria-busy", "true");
-      label.textContent = busyText || "Working…";
-    } else {
-      button.disabled = false;
-      button.removeAttribute("aria-busy");
-      label.textContent = button.dataset.label || label.textContent;
-    }
+    const button = form && form.querySelector("button[type=submit]");
+    ccBusy(button, on, busyText);
   };
   const json = (form) => Object.fromEntries(new FormData(form).entries());
   async function submit(form, url, next, busyText) { form.addEventListener("submit", async (event) => { event.preventDefault(); formError(""); fieldErrors({}); busy(form, true, busyText); try { await ccApi.post(url, json(form)); window.location.href = next; } catch (error) { fieldErrors(error.fields); formError(error.message); } finally { busy(form, false, busyText); } }); }

@@ -44,6 +44,8 @@ function showFormError(errorId, message) {
 }
 
 function setLoading(button, isLoading, busyText) {
+  /* Delegates to the shared ccBusy helper (spinner, aria-busy, width pin). */
+  if (typeof ccBusy === "function") { ccBusy(button, isLoading, busyText); return; }
   if (!button) return;
   const label = button.querySelector(".btn-label");
   if (isLoading) {
