@@ -33,6 +33,7 @@
              flow the authenticated app shell uses). -->
         <span class="nav-auth">
           {% if session_user %}
+            <a class="btn btn-ghost nav-auth-btn" href="/dashboard">Dashboard</a>
             <button class="btn btn-ghost nav-auth-btn" type="button" id="nav-logout">Logout</button>
           {% else %}
             <a class="btn btn-ghost nav-auth-btn" href="{{ url_for('auth_pages.login') }}">Login</a>
