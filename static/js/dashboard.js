@@ -42,6 +42,23 @@ const downloadUrl = id => `/api/resumes/${id}/download`;
 const canDownload = x => resumeId(x) !== null && x.has_file !== false;
 const pickCurrentResume = list => (list || []).find(x => x && x.is_primary) || (list || [])[0] || null;
 
+/* Button busy state for the actions that make a request. Uses the existing
+   disabled + aria-busy pattern, blocks a double click, and always restores the
+   button's original text. */
+const busyButton = (btn, on, busyText) => {
+  if (!btn) return;
+  if (on) {
+    if (!btn.dataset.label) btn.dataset.label = btn.textContent;
+    btn.disabled = true;
+    btn.setAttribute("aria-busy", "true");
+    btn.textContent = busyText || "Working…";
+  } else {
+    btn.disabled = false;
+    btn.removeAttribute("aria-busy");
+    btn.textContent = btn.dataset.label || btn.textContent;
+  }
+};
+
 /* "View Analysis" — reads the stored analysis from the existing
    GET /api/resumes/<id> endpoint and shows it inside this card. No new
    endpoint, no raw objects, and the id is re-validated before it is used. */
@@ -117,6 +134,7 @@ async function toggleAnalysis(btn) {
   }
   box.hidden = false;
   box.innerHTML = '<div class="skeleton big"></div>';  // loading state
+  busyButton(btn, true, "Loading analysis…");
   try {
     const detail = (await ccApi.get(`/api/resumes/${id}`)).data;
     openAnalysisId = id;
@@ -128,6 +146,8 @@ async function toggleAnalysis(btn) {
     box.hidden = true;
     box.innerHTML = "";
     if (typeof ccToast === "function") ccToast(e.message, "error");
+  } finally {
+    busyButton(btn, false);
   }
 }
 
