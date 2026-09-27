@@ -42,9 +42,99 @@ const downloadUrl = id => `/api/resumes/${id}/download`;
 const canDownload = x => resumeId(x) !== null && x.has_file !== false;
 const pickCurrentResume = list => (list || []).find(x => x && x.is_primary) || (list || [])[0] || null;
 
+/* "View Analysis" — reads the stored analysis from the existing
+   GET /api/resumes/<id> endpoint and shows it inside this card. No new
+   endpoint, no raw objects, and the id is re-validated before it is used. */
+const ANALYSIS_ROWS = [["Keywords score", "keyword_score"], ["Skills score", "skills_score"],
+                       ["Experience / Projects score", "experience_score"],
+                       ["Education score", "education_score"],
+                       ["Formatting score", "formatting_score"],
+                       ["Sections score", "sections_score"]];
+let openAnalysisId = null;
+let lastDashboard = null;
+/* Insight lists may hold plain strings or objects such as {"skill": "…"};
+   flatten to text so a value never renders as [object Object]. */
+const listText = items => {
+  if (!Array.isArray(items)) return [];
+  return items.map(item => {
+    if (item === null || item === undefined) return "";
+    if (typeof item === "string") return item;
+    if (typeof item === "object") {
+      const v = item.skill || item.name || item.label || item.title || item.text || item.value;
+      return (typeof v === "string" || typeof v === "number") ? String(v) : "";
+    }
+    return String(item);
+  }).filter(Boolean);
+};
+const dashValue = v => (v === null || v === undefined || v === "" || isNaN(v)) ? "—" : esc(v);
+const dashNoValue = '<span class="muted-block">—</span>';
+const analysisRow = (label, value) => `<div class="data-row"><span><strong>${esc(label)}</strong><small>${value}</small></span></div>`;
+const analysisListRow = (label, items) => { const text = listText(items); return analysisRow(label, text.length ? text.map(t => esc(t)).join(", ") : dashNoValue); };
+
+function renderAnalysis(d) {
+  const data = d || {};
+  const resume = data.resume || {};
+  const an = data.analysis || null;
+  const insights = (an && an.insights) || {};
+  const when = an ? dayLabel(an.created_at) : "";
+  const ai = an && an.ai_enhanced ? tag("AI enhanced", "green") : "";
+  const head = `<div class="data-list"><div class="data-row"><span><strong>${esc(resume.filename || "")}</strong><small>${esc(when ? `Analysed ${when}` : "Not analyzed yet")}</small></span>${ai}</div></div>`;
+  const tiles = `<div class="page-grid two">`
+    + `<article class="card metric-card"><span class="section-label">ATS score</span><div class="metric-value">${an ? dashValue(an.ats_score) : "—"}</div><div class="metric-note">${esc(when || "No analysis")}</div></article>`
+    + `<article class="card metric-card"><span class="section-label">Resume text</span><div class="metric-value">${dashValue(resume.word_count)}</div><div class="metric-note">words extracted</div></article></div>`;
+  const rows = ANALYSIS_ROWS.map(([label, key]) => analysisRow(label, an ? dashValue(an[key]) : dashNoValue)).join("")
+    + analysisListRow("Strengths", insights.strengths)
+    + analysisListRow("Weaknesses", insights.weaknesses)
+    + analysisListRow("Missing skills", insights.missing_skills)
+    + analysisListRow("Improvement areas", insights.improvement_areas)
+    + analysisListRow("Detected skills", data.detected_skills);
+  const close = `<div class="data-list"><div class="data-row"><span></span><button class="btn btn-outline btn-sm" data-close-analysis="1" title="Hide the analysis details">Hide analysis</button></div></div>`;
+  return head + tiles + `<div class="data-list">${rows}</div>` + close;
+}
+
+function bindAnalysis() {
+  const box = $("current-resume-analysis");
+  if (!box) return;
+  box.querySelectorAll("[data-close-analysis]").forEach(btn => btn.addEventListener("click", () => {
+    openAnalysisId = null;
+    box.hidden = true;
+    box.innerHTML = "";
+    if (lastDashboard) renderCurrentResume(lastDashboard);   // button label back to "View Analysis"
+  }));
+}
+
+async function toggleAnalysis(btn) {
+  const id = resumeId({id: btn.dataset.analysis});   // never trust the DOM value
+  if (id === null) return;
+  const box = $("current-resume-analysis");
+  if (!box) return;
+  if (openAnalysisId === id) {                       // already open: hide, no API call
+    openAnalysisId = null;
+    box.hidden = true;
+    box.innerHTML = "";
+    if (lastDashboard) renderCurrentResume(lastDashboard);
+    return;
+  }
+  box.hidden = false;
+  box.innerHTML = '<div class="skeleton big"></div>';  // loading state
+  try {
+    const detail = (await ccApi.get(`/api/resumes/${id}`)).data;
+    openAnalysisId = id;
+    box.innerHTML = renderAnalysis(detail);
+    if (lastDashboard) renderCurrentResume(lastDashboard);   // label becomes "Hide analysis"
+    bindAnalysis();
+  } catch (e) {
+    openAnalysisId = null;
+    box.hidden = true;
+    box.innerHTML = "";
+    if (typeof ccToast === "function") ccToast(e.message, "error");
+  }
+}
+
 function renderCurrentResume(d) {
   const box = $("current-resume-content");
   if (!box) return;
+  lastDashboard = d;
   const resume = pickCurrentResume(d.latest_resumes);
   const id = resumeId(resume);
   if (!resume || id === null) {
@@ -61,11 +151,13 @@ function renderCurrentResume(d) {
   const action = canDownload(resume)
     ? `<a class="btn btn-primary" href="${downloadUrl(id)}" download>Download resume</a>`
     : `<span class="metric-note">The original file is no longer available.</span>`;
+  const viewAnalysis = `<button class="btn btn-outline btn-sm" data-analysis="${id}" title="${openAnalysisId === id ? "Hide the analysis details" : "Show the stored analysis"}" aria-label="${openAnalysisId === id ? "Hide analysis for" : "View analysis for"} ${esc(resume.filename)}">${openAnalysisId === id ? "Hide analysis" : "View Analysis"}</button>`;
   const badges = [resume.is_primary ? tag("Primary", "green") : "", resume.target_role ? tag(resume.target_role, "blue") : ""].filter(Boolean).join(" ");
   const details = badges
     ? `<div class="data-list"><div class="data-row"><span>${badges}</span><a class="btn btn-outline btn-sm" href="/resume">View all resumes</a></div></div>`
     : `<div class="data-list"><div class="data-row"><span></span><a class="btn btn-outline btn-sm" href="/resume">View all resumes</a></div></div>`;
-  box.innerHTML = `<div class="data-list"><div class="data-row"><span><strong>${esc(resume.filename)}</strong><small>${esc(facts)}</small></span>${action}</div></div>` + details;
+  box.innerHTML = `<div class="data-list"><div class="data-row"><span><strong>${esc(resume.filename)}</strong><small>${esc(facts)}</small></span>${action} ${viewAnalysis}</div></div>` + details;
+  box.querySelectorAll("[data-analysis]").forEach(btn => btn.addEventListener("click", () => toggleAnalysis(btn)));
 }
 
 async function load() { try { const result = await ccApi.get("/api/dashboard"); const d = result.data; $("dashboard-metrics").innerHTML = [metric("ATS score", d.stats.ats_score || "—", d.stats.ats_score ? "Latest resume" : "Upload a resume to begin"), metric("Skills", d.stats.skills, "Saved capabilities"), metric("Skill gaps", d.stats.skill_gaps, d.stats.target_role || "Set a target role"), metric("Resumes", d.stats.resumes, "Saved versions"), metric("Roadmap", `${d.stats.roadmap_progress}%`, "Completion"), metric("Target role", d.stats.target_role || "Not set", "Career direction")].join(""); const readiness = d.readiness || {}; $("readiness-card").innerHTML = `<div class="ring-wrap"><div class="ring" style="--pct:${readiness.readiness || 0};--ring-color:var(--primary)" data-label="${readiness.readiness || 0}"></div><div><strong>${readiness.readiness || 0}/100 readiness</strong><p class="muted-block">ATS ${readiness.components?.ats || 0} · Skills ${readiness.components?.skills || 0} · Roadmap ${readiness.components?.roadmap || 0}</p></div></div>`; $("dashboard-insight").textContent = d.insight || "Your next best move will appear as your profile develops."; renderCurrentResume(d); $("dashboard-activity").innerHTML = d.recent_activity?.length ? `<ul class="data-list">${d.recent_activity.map(x => `<li class="data-row"><span><strong>${esc(x.message)}</strong><small>${new Date(x.created_at).toLocaleString()}</small></span></li>`).join("")}</ul>` : empty("No activity yet", "Upload a resume or add a skill to start your timeline.", ["/resume", "Open Resume Vault"]); $("dashboard-resumes").innerHTML = d.latest_resumes?.length ? `<ul class="data-list">${d.latest_resumes.map(x => { const rid = resumeId(x); const action = canDownload(x) ? `<a href="${downloadUrl(rid)}" download>Download</a>` : `<a href="/resume">View</a>`; return `<li class="data-row"><span><strong>${esc(x.filename)}</strong><small>Version ${x.version} · ATS ${x.ats_score ?? "—"}</small></span>${action}</li>`; }).join("")}</ul>` : empty("No resume yet", "Upload your first resume to unlock Career Intelligence.", ["/resume", "Upload resume"]); const progressBox = $("dashboard-progress"); if (progressBox) progressBox.innerHTML = renderProgress(d.history, d.stats); $("dashboard-state").hidden = true; $("dashboard-content").hidden = false; } catch (error) { $("dashboard-state").className = "form-error"; $("dashboard-state").textContent = error.message; } } load(); })();
