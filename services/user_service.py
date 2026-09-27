@@ -10,7 +10,10 @@ from datetime import datetime, timedelta
 from flask import g, session
 from werkzeug.security import check_password_hash, generate_password_hash
 
-from models import PasswordResetToken, User, db
+from models import (Activity, CareerProfile, CareerRoadmap, CoachMessage,
+                    GapGuidance, GeneratedResume, Notification,
+                    PasswordResetToken, Progress, Resume, ResumeAnalysis,
+                    SkillHistory, User, UserSkill, db)
 
 EMAIL_RE = re.compile(r"^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$")
 RESET_TOKEN_MINUTES = 30
@@ -149,3 +152,64 @@ def redeem_password_reset(token: str, new_password: str, confirm: str) -> tuple:
     row.used_at = datetime.utcnow()
     db.session.commit()
     return True, {}
+
+
+
+# ---------------------------------------------------------------------------
+# Permanent account deletion
+# ---------------------------------------------------------------------------
+# The order below was derived from the live schema (15 tables), not guessed.
+# `skills` is a GLOBAL catalog shared by every account and is deliberately never
+# touched. The other 13 tables are user-owned and each carries a user_id FK.
+#
+# The schema declares NO "ON DELETE CASCADE", so the deletes must already be in
+# a child-first order to stay valid on PostgreSQL as well as SQLite:
+#   * resume_analyses references BOTH resumes and users  -> before `resumes`
+#   * user_skills     references BOTH users and the shared `skills` catalog
+#   * resumes         is the parent of resume_analyses
+#   * every other table references only `users`, so any order is safe
+# Only rows belonging to this one user are ever selected.
+_USER_OWNED_DELETE_ORDER = (
+    ResumeAnalysis,     # child of resumes, also a child of users
+    Resume,             # parent of resume_analyses
+    UserSkill,          # also references the shared `skills` catalog
+    SkillHistory,
+    CareerRoadmap,
+    CoachMessage,       # AI coach conversation history
+    Notification,
+    Activity,
+    Progress,
+    CareerProfile,      # profile / settings
+    GapGuidance,
+    GeneratedResume,    # resume builder drafts
+    PasswordResetToken,
+)
+
+
+def delete_account(user: User) -> dict:
+    """Permanently delete `user` and every row that belongs to them.
+
+    Everything runs inside ONE database transaction. If any statement fails the
+    session is rolled back, so an account is never left partially deleted, and
+    the exception is re-raised for the caller to turn into a friendly error.
+
+    Returns ``{table_name: rows_deleted}`` (always including ``users``).
+    """
+    uid = user.id
+    deleted: dict = {}
+    try:
+        for model in _USER_OWNED_DELETE_ORDER:
+            deleted[model.__tablename__] = model.query.filter_by(
+                user_id=uid).delete(synchronize_session=False)
+        # The user row goes last, once nothing references it any more.
+        deleted["users"] = User.query.filter_by(id=uid).delete(
+            synchronize_session=False)
+        db.session.commit()
+    except Exception:
+        db.session.rollback()
+        raise
+    finally:
+        # Drop the deleted rows from the session identity map so nothing
+        # downstream can try to flush or read them again.
+        db.session.expunge_all()
+    return deleted

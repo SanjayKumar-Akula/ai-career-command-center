@@ -410,3 +410,25 @@ a:hover { text-decoration: underline; }
 @media (prefers-reduced-motion: reduce) {
   .cc-spin { animation-duration: 2.4s; }
 }
+
+/* ---------------------------------------------------------------------
+   Settings > Danger Zone and its delete-account confirmation dialog.
+   Scoped to these two features only; every other rule is unchanged.
+   --------------------------------------------------------------------- */
+.danger-zone { border-color: #fecaca; }
+.danger-zone .card-title { color: var(--danger); }
+
+#delete-account-dialog {
+  width: min(520px, calc(100vw - 32px));
+  padding: 22px 24px;
+  border: 1px solid #fecaca;
+  border-radius: 14px;
+  background: var(--surface, #fff);
+  color: var(--text);
+  box-shadow: var(--shadow-md, 0 12px 32px rgba(15, 23, 42, .18));
+}
+#delete-account-dialog::backdrop { background: rgba(15, 23, 42, .55); }
+#delete-account-dialog h3 { margin: 0 0 10px; font-size: 18px; color: var(--danger); }
+#delete-account-dialog .data-list { margin: 12px 0; }
+#delete-account-dialog .data-row:last-child { border-bottom: 0; }
+#delete-account-dialog .btn-row { margin-top: 18px; justify-content: flex-end; }

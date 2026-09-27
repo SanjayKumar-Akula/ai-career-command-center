@@ -1,1 +1,95 @@
-{% extends '_app_base.html' %}{% block content %}<div class="page-head"><div><span class="section-label">Account</span><h2>Settings</h2><p class="sub">Manage your session and account preferences.</p></div></div><section class="card"><h3 class="card-title">Session security</h3><p class="card-sub">Your session uses HTTP-only cookies and CSRF protection for state-changing requests.</p><button id="settings-logout" class="btn btn-outline" type="button">Sign out</button></section>{% endblock %}{% block scripts %}<script>document.getElementById('settings-logout').addEventListener('click',async(e)=>{const b=e.currentTarget;window.ccBusy&&window.ccBusy(b,true,'Signing out…');try{await ccApi.post('/api/auth/logout');location.href='/'}catch(e){alert(e.message)}finally{window.ccBusy&&window.ccBusy(b,false)}});</script>{% endblock %}
+{% extends '_app_base.html' %}{% block content %}<div class="page-head"><div><span class="section-label">Account</span><h2>Settings</h2><p class="sub">Manage your session and account preferences.</p></div></div><section class="card"><h3 class="card-title">Session security</h3><p class="card-sub">Your session uses HTTP-only cookies and CSRF protection for state-changing requests.</p><button id="settings-logout" class="btn btn-outline" type="button">Sign out</button></section>
+
+<!-- Danger Zone: separated from the sections above, and only ever shown to
+     the signed-in owner of this account. -->
+<section class="card danger-zone" aria-labelledby="danger-zone-title">
+  <h3 class="card-title" id="danger-zone-title">Danger Zone</h3>
+  <p class="card-sub">These actions are permanent and cannot be undone.</p>
+  <div class="data-row">
+    <span>
+      <strong>Delete account</strong>
+      <small>Permanently remove this account and every record that belongs to it.</small>
+    </span>
+    <button id="settings-delete-account" class="btn btn-danger" type="button"
+            data-confirm-email="{{ session_user.email if session_user else '' }}">Delete account</button>
+  </div>
+  <p id="delete-account-error" class="form-error" role="alert" hidden></p>
+</section>
+
+<!-- Confirmation step: nothing is deleted until the user presses the final
+     button below. -->
+<dialog id="delete-account-dialog" aria-labelledby="delete-account-dialog-title">
+  <h3 id="delete-account-dialog-title">Delete your account?</h3>
+  <p class="muted-block">This is permanent. Your account and <strong>all</strong> of the
+     data stored with it will be permanently deleted, and it cannot be recovered:</p>
+  <ul class="data-list">
+    <li class="data-row"><span>Profile and settings</span></li>
+    <li class="data-row"><span>Resumes, ATS analyses and detected skills</span></li>
+    <li class="data-row"><span>Skills and skill-growth history</span></li>
+    <li class="data-row"><span>Career roadmaps and progress</span></li>
+    <li class="data-row"><span>AI Career Coach conversation history</span></li>
+    <li class="data-row"><span>Notifications and activity</span></li>
+    <li class="data-row"><span>Resume Builder drafts and saved gap guidance</span></li>
+  </ul>
+  <p class="notice">There is no undo. You will be signed out and returned to the sign-in page.</p>
+  <p class="muted-block">To confirm, the deletion will be performed for
+     <strong id="delete-account-email">{{ session_user.email if session_user else '' }}</strong>.</p>
+  <div class="btn-row">
+    <button id="delete-account-cancel" class="btn btn-outline" type="button">Cancel</button>
+    <button id="delete-account-confirm" class="btn btn-danger" type="button">Delete my account permanently</button>
+  </div>
+</dialog>{% endblock %}{% block scripts %}<script>document.getElementById('settings-logout').addEventListener('click',async(e)=>{const b=e.currentTarget;window.ccBusy&&window.ccBusy(b,true,'Signing out…');try{await ccApi.post('/api/auth/logout');location.href='/'}catch(e){alert(e.message)}finally{window.ccBusy&&window.ccBusy(b,false)}});
+
+/* Delete account: a deliberate two-step confirmation. The first click only
+   opens the dialog; nothing is sent until the user presses the final button
+   inside it. ccBusy gives the same loading feedback as every other action. */
+(function () {
+  const openBtn = document.getElementById('settings-delete-account');
+  const dialog = document.getElementById('delete-account-dialog');
+  const cancelBtn = document.getElementById('delete-account-cancel');
+  const confirmBtn = document.getElementById('delete-account-confirm');
+  const errorBox = document.getElementById('delete-account-error');
+  if (!openBtn || !dialog || !cancelBtn || !confirmBtn || !errorBox) return;
+
+  const email = openBtn.dataset.confirmEmail || '';
+  const showError = (message) => {
+    errorBox.textContent = message;
+    errorBox.hidden = !message;
+  };
+
+  openBtn.addEventListener('click', () => {
+    showError('');
+    if (typeof dialog.showModal === 'function') {
+      if (!dialog.open) dialog.showModal();
+    } else {
+      dialog.setAttribute('open', '');
+    }
+  });
+
+  const closeDialog = () => {
+    if (typeof dialog.close === 'function' && dialog.open) dialog.close();
+    else dialog.removeAttribute('open');
+  };
+  cancelBtn.addEventListener('click', closeDialog);
+  // Escape / backdrop dismissal also cancels — nothing is deleted.
+  dialog.addEventListener('cancel', (event) => { event.preventDefault(); closeDialog(); });
+
+  confirmBtn.addEventListener('click', async () => {
+    confirmBtn.disabled = true;              // no double submit
+    window.ccBusy && window.ccBusy(confirmBtn, true, 'Deleting…');
+    showError('');
+    try {
+      const result = await ccApi.request('/api/auth/account', {
+        method: 'DELETE',
+        body: JSON.stringify({ confirm: email })
+      });
+      const data = (result && result.data) || {};
+      window.location.assign(data.redirect || '/');
+    } catch (e) {
+      // The account still exists — keep the dialog open and explain why.
+      showError(e.message || 'We could not delete your account. Please try again.');
+      window.ccBusy && window.ccBusy(confirmBtn, false);
+      confirmBtn.disabled = false;
+    }
+  });
+})();</script>{% endblock %}

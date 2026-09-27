@@ -4,15 +4,17 @@ from __future__ import annotations
 
 import os
 
-from flask import Blueprint, jsonify, request, session
+from flask import Blueprint, g, jsonify, request, session
 
 from models import User, db
+from routes.api_helpers import data_api, fail, ok
 from services.user_service import (
     authenticate,
     clear_session,
     create_password_reset,
     create_user,
     current_user,
+    delete_account,
     email_exists,
     redeem_password_reset,
     set_session,
@@ -122,3 +124,51 @@ def reset_password():
     session.clear()  # force a fresh sign-in with the new password
     return jsonify({"success": True, "data": {
         "message": "Password updated. Please sign in with your new password."}})
+
+
+@auth_api_bp.delete("/account")
+@api_login_required
+@data_api(write=True)
+def api_delete_account():
+    """Permanently delete the signed-in account and all of its data.
+
+    Guarded by the standard ``@api_login_required`` (no session -> 401) and
+    ``@data_api(write=True)`` (CSRF token required, rate limited, friendly
+    errors). The target is ALWAYS ``g.user``: a user id sent by the client is
+    ignored, and an attempt to name a different account is rejected outright, so
+    one account can never delete another.
+
+    An explicit confirmation is mandatory: the client must echo back the
+    account's own email address, which the Settings dialog asks the user to
+    confirm. Deleting without it returns 400 and changes nothing.
+    """
+    user = g.user
+    payload = request.get_json(silent=True) or {}
+
+    # Defence in depth: never act on a client-supplied owner.
+    claimed = str(payload.get("user_id") or "").strip()
+    if claimed and claimed != str(user.id):
+        return fail("You can only delete your own account.", 400)
+
+    confirm = str(payload.get("confirm") or "").strip()
+    if not confirm:
+        return fail("Please confirm the deletion before continuing.", 400)
+    if confirm.lower() != (user.email or "").lower():
+        return fail("Confirmation did not match this account's email address.", 400)
+
+    try:
+        deleted = delete_account(user)
+    except Exception:
+        # delete_account already rolled the transaction back, so nothing was
+        # removed; report it instead of leaving a half-deleted account.
+        db.session.rollback()
+        return fail("We could not delete your account. Nothing was removed — "
+                    "please try again.", 500)
+
+    g.user = None                 # the row no longer exists
+    clear_session()               # invalidate the session on this side too
+    return ok({
+        "message": "Your account and all of its data have been permanently deleted.",
+        "deleted": deleted,
+        "redirect": "/",           # the app's existing public entry page
+    })
