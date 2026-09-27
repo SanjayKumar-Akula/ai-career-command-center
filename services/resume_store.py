@@ -35,6 +35,20 @@ def latest_analysis(resume: Resume):
             .order_by(ResumeAnalysis.created_at.desc()).first())
 
 
+def latest_two_analyses(user):
+    """The newest stored analysis and the one immediately before it.
+
+    Scoped to one user (never another account) and ordered by created_at with
+    `id` as a deterministic tie-break, so two uploads in the same second still
+    compare in the order they happened. Returns ``(current, previous)``; either
+    side is ``None`` when that many analyses do not exist yet.
+    """
+    rows = (ResumeAnalysis.query.filter_by(user_id=user.id)
+            .order_by(ResumeAnalysis.created_at.desc(), ResumeAnalysis.id.desc())
+            .limit(2).all())
+    return (rows[0] if rows else None), (rows[1] if len(rows) > 1 else None)
+
+
 def upload_and_analyze(user, file_storage, target_role: str) -> dict:
     """Validate → extract → next version → store → analyze → persist analysis."""
     target_role = clean_text(target_role, 80)
@@ -165,6 +179,66 @@ def run_analysis(user, resume: Resume) -> dict:
     db.session.commit()
     return result
 
+FACTOR_LABELS = ("Keyword Match", "Skills Match", "Experience / Projects",
+                 "Education", "ATS Formatting", "Section Completeness")
+
+
+def insight_skill_names(insights: dict | None) -> set:
+    """Skill names referenced by a stored analysis' ``missing_skills`` insight."""
+    items = (insights or {}).get("missing_skills") or []
+    names = {s.get("skill") if isinstance(s, dict) else str(s) for s in items}
+    return {name for name in names if name}
+
+
+def factor_comparison(older: ResumeAnalysis, newer: ResumeAnalysis) -> list:
+    """The six ATS factors side by side (shared by compare + dashboard)."""
+    old_b = {item.get("label"): item for item in (older.breakdown or [])}
+    new_b = {item.get("label"): item for item in (newer.breakdown or [])}
+    factors = []
+    for label in FACTOR_LABELS:
+        old_item, new_item = old_b.get(label, {}), new_b.get(label, {})
+        old_score, new_score = old_item.get("score", 0), new_item.get("score", 0)
+        factors.append({
+            "label": label,
+            "old": old_score, "new": new_score,
+            "max": max(old_item.get("max", 0), new_item.get("max", 0)),
+            "delta": round(new_score - old_score, 1),
+        })
+    return factors
+
+
+def diff_analyses(older: ResumeAnalysis, newer: ResumeAnalysis) -> dict:
+    """Deterministic difference between two *stored* analyses.
+
+    The single source of truth for "what changed": ``compare_resumes()`` (two
+    chosen resumes) and the dashboard (newest analysis vs the one before it)
+    both call it, so one pair of analyses can never yield two different
+    answers. Every value is read from the saved rows — no score is invented.
+    """
+    old_ins = older.insights or {}
+    new_ins = newer.insights or {}
+    old_missing, new_missing = insight_skill_names(old_ins), insight_skill_names(new_ins)
+    old_kw = {str(k).lower() for k in (old_ins.get("matched_keywords") or [])}
+    new_kw = {str(k).lower() for k in (new_ins.get("matched_keywords") or [])}
+    return {
+        "score_delta": newer.ats_score - older.ats_score,
+        "resolved_gaps": sorted(old_missing - new_missing),
+        "new_gaps": sorted(new_missing - old_missing),
+        "keywords": {"added": sorted(new_kw - old_kw),
+                     "removed": sorted(old_kw - new_kw)},
+        "improved": newer.ats_score > older.ats_score,
+    }
+
+
+def detected_skill_delta(older: Resume, newer: Resume) -> dict:
+    """Skills detected in each resume's stored extraction (per-resume view)."""
+    old_skills = set(load_json(older.detected_skills, []) or [])
+    new_skills = set(load_json(newer.detected_skills, []) or [])
+    return {"old": sorted(old_skills), "new": sorted(new_skills),
+            "added": sorted(new_skills - old_skills),
+            "removed": sorted(old_skills - new_skills)}
+
+
 def compare_resumes(user, older_id: int, newer_id: int) -> dict:
     """Compare two of the user's own resume analyses factor by factor."""
     older, newer = get_resume(user, older_id), get_resume(user, newer_id)
@@ -175,48 +249,19 @@ def compare_resumes(user, older_id: int, newer_id: int) -> dict:
     if not old_analysis or not new_analysis:
         raise ResumeStoreError("Both resumes need at least one analysis before comparing.")
 
-    labels = ["Keyword Match", "Skills Match", "Experience / Projects",
-              "Education", "ATS Formatting", "Section Completeness"]
-    old_b = {item.get("label"): item for item in (old_analysis.breakdown or [])}
-    new_b = {item.get("label"): item for item in (new_analysis.breakdown or [])}
-    factors = []
-    for label in labels:
-        old_item, new_item = old_b.get(label, {}), new_b.get(label, {})
-        old_score, new_score = old_item.get("score", 0), new_item.get("score", 0)
-        factors.append({
-            "label": label,
-            "old": old_score, "new": new_score,
-            "max": max(old_item.get("max", 0), new_item.get("max", 0)),
-            "delta": round(new_score - old_score, 1),
-        })
-
-    old_ins = old_analysis.insights or {}
-    new_ins = new_analysis.insights or {}
-
-    def _names(items):
-        return {s.get("skill") if isinstance(s, dict) else str(s) for s in items}
-
-    old_missing, new_missing = _names(old_ins.get("missing_skills", [])), _names(new_ins.get("missing_skills", []))
-    old_kw = {str(k).lower() for k in old_ins.get("matched_keywords", [])}
-    new_kw = {str(k).lower() for k in new_ins.get("matched_keywords", [])}
-    old_skills = set(load_json(older.detected_skills, []) or [])
-    new_skills = set(load_json(newer.detected_skills, []) or [])
-
+    delta = diff_analyses(old_analysis, new_analysis)
     return {
         "old": {"resume": older.to_dict(include_detected=True),
                 "analysis": old_analysis.to_dict()},
         "new": {"resume": newer.to_dict(include_detected=True),
                 "analysis": new_analysis.to_dict()},
-        "factors": factors,
-        "score_delta": new_analysis.ats_score - old_analysis.ats_score,
-        "resolved_gaps": sorted(old_missing - new_missing),
-        "new_gaps": sorted(new_missing - old_missing),
-        "skills": {"old": sorted(old_skills), "new": sorted(new_skills),
-                   "added": sorted(new_skills - old_skills),
-                   "removed": sorted(old_skills - new_skills)},
-        "keywords": {"added": sorted(new_kw - old_kw),
-                     "removed": sorted(old_kw - new_kw)},
-        "improved": new_analysis.ats_score > old_analysis.ats_score,
+        "factors": factor_comparison(old_analysis, new_analysis),
+        "score_delta": delta["score_delta"],
+        "resolved_gaps": delta["resolved_gaps"],
+        "new_gaps": delta["new_gaps"],
+        "skills": detected_skill_delta(older, newer),
+        "keywords": delta["keywords"],
+        "improved": delta["improved"],
     }
 
 

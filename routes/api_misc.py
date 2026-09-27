@@ -28,6 +28,7 @@ def register(app) -> None:
     @data_api()
     def api_dashboard():
         from models import CareerRoadmap, Resume, UserSkill
+        from services.dashboard_service import build_history
         from services.gap_engine import compute_gap_analysis
         from services.skill_service import skill_growth
 
@@ -60,6 +61,10 @@ def register(app) -> None:
             "unread_notifications": unread_count(user),
             "skill_growth": skill_growth(user, 5),
             "latest_resumes": [row.to_dict() for row in resumes[:3]],
+            # Additive key: previous-vs-current career history. Aggregation lives
+            # in services/dashboard_service.py; every existing key above is
+            # untouched, so older clients keep working unchanged.
+            "history": build_history(user, roadmap),
         })
 
     # --------------------------------------------------------------- history
