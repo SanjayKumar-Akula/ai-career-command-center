@@ -100,6 +100,32 @@ def _detect_and_store(resume: Resume) -> list:
     return detected
 
 
+def _promote_detected_skills(user, resume: Resume, detected: list) -> dict:
+    """Move a resume's detected skills into the owner's own Skills data.
+
+    Ownership is re-checked here, so promotion can only ever touch the
+    authenticated owner's profile: a resume that belongs to somebody else is
+    ignored, and the anonymous public analyzer never reaches this function
+    because it has no user and no stored resume.
+
+    Best effort by design — a promotion problem must never fail an upload or
+    a re-analysis, so failures are logged and reported as "nothing added".
+    """
+    if user is None or resume is None or resume.user_id != user.id:
+        return {"added": [], "skipped": []}
+    if not detected:
+        return {"added": [], "skipped": []}
+
+    from services.skill_service import promote_detected_skills
+
+    try:
+        return promote_detected_skills(user, detected)
+    except Exception:  # pragma: no cover - never fail an upload over skills
+        logger.warning("Automatic skill promotion failed", exc_info=True)
+        db.session.rollback()
+        return {"added": [], "skipped": []}
+
+
 def _run_analysis_and_side_effects(user, resume: Resume) -> dict:
     """Persist the analysis, then log activity + notifications (best effort)."""
     from services.activity_service import (
@@ -116,6 +142,8 @@ def _run_analysis_and_side_effects(user, resume: Resume) -> dict:
         previous_score = prior.ats_score
 
     result = run_analysis(user, resume)
+    # Additive only: the same key is present for uploads and re-analyses.
+    result["skills_added"] = []
 
     try:
         detected = _detect_and_store(resume)
@@ -123,6 +151,17 @@ def _run_analysis_and_side_effects(user, resume: Resume) -> dict:
             log_activity(user, "skills_detected",
                          f"Detected {len(detected)} skills in {resume.filename}",
                          {"count": len(detected), "resume_id": resume.id})
+        # A resume the user just analyzed becomes part of their Skills data.
+        # Only genuinely new skills are added, so re-running this is a no-op.
+        result["skills_added"] = _promote_detected_skills(
+            user, resume, detected)["added"]
+        if result["skills_added"]:
+            log_activity(user, "skills_added",
+                         f"Added {len(result['skills_added'])} skills from "
+                         f"{resume.filename} to your skills",
+                         {"count": len(result["skills_added"]),
+                          "resume_id": resume.id,
+                          "skills": result["skills_added"][:10]})
         log_activity(user, "resume_analyzed",
                      f"{resume.filename} analyzed — ATS {resume.ats_score}/100",
                      {"resume_id": resume.id, "ats_score": resume.ats_score,

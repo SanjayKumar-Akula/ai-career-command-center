@@ -107,6 +107,44 @@ def bulk_add_skills(user, names, source: str = "resume") -> dict:
     return {"added": added, "skipped": skipped}
 
 
+def promote_detected_skills(user, names) -> dict:
+    """Turn resume-detected skills into the user's own skills (idempotent).
+
+    This is the automatic step that runs after a successful resume analysis,
+    so a skill the user actually demonstrated in their resume shows up in
+    their Skills data without a manual "save" click.
+
+    It delegates straight to :func:`bulk_add_skills` -> :func:`add_user_skill`,
+    so skill normalisation, catalog lookup, the ``(user_id, skill_id)``
+    uniqueness rule, the default proficiency for a skill with no reliable
+    evidence, and the ``SkillHistory`` "added" event all stay in one place.
+
+    Guarantees, relied on by the idempotency tests:
+      * only the skills passed in are ever added — nothing is invented;
+      * a duplicate in the same list is added once, then skipped;
+      * a skill the user already owns is left completely untouched — its
+        ``source``, ``proficiency`` and history are never overwritten,
+        downgraded or removed, no matter which source it came from;
+      * re-running it (same resume again, or an overlapping resume) adds
+        nothing new and writes no extra history rows.
+
+    Returns ``{"added": [...], "skipped": [...]}`` using catalog names.
+    """
+    wanted, seen = [], set()
+    for raw in names or []:
+        if not isinstance(raw, str):   # never invent a skill from a non-string
+            continue
+        name = raw.strip()[:60]
+        key = name.lower()
+        if len(name) < 2 or key in seen:
+            continue
+        seen.add(key)
+        wanted.append(name)
+    if not wanted:
+        return {"added": [], "skipped": []}
+    return bulk_add_skills(user, wanted, source="resume")
+
+
 def list_user_skills(user) -> list:
     rows = (UserSkill.query.filter_by(user_id=user.id)
             .join(Skill).order_by(Skill.category, Skill.name).all())
