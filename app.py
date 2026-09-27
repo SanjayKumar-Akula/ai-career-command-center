@@ -8,6 +8,7 @@ Routes:
     POST /api/resume-analyzer  -> AI resume analysis (multipart/form-data)
 """
 
+import io
 import logging
 import os
 import secrets
@@ -125,6 +126,74 @@ def _prefill_career_payload(payload):
     return payload
 
 
+def _sync_career_plan_to_user(user, role: str) -> None:
+    """Save a public Career Guide result into the signed-in user's own roadmap.
+
+    This reuses the *existing* authenticated roadmap flow
+    (``services.roadmap_service.generate_roadmap`` — the same call the Roadmap
+    page makes), so the Dashboard keeps reading the same ``CareerRoadmap`` rows
+    as always. There is no second storage system and no new endpoint.
+
+    Anonymous visitors have no ``user`` and are skipped entirely, so the public
+    Career Guide behaves exactly as before. Failures are logged and swallowed:
+    the public result must still render even if saving is not possible.
+    """
+    if not user:
+        return
+    role = (role or "").strip()
+    if len(role) < 3:
+        return
+    try:
+        from services.roadmap_service import generate_roadmap
+
+        generate_roadmap(user, role)
+    except Exception:  # never fail a public result over persistence
+        logger.warning("Could not save the career plan to the user's roadmap",
+                       exc_info=True)
+        _rollback_quietly()
+
+
+def _sync_resume_to_user(user, filename: str, pdf_bytes: bytes,
+                         target_role: str, result: dict) -> None:
+    """Store a public Resume Analyzer upload in the signed-in user's vault.
+
+    Reuses the *existing* authenticated storage flow
+    (``resume_store.store_analyzed_resume``, which shares its validation,
+    versioning, ResumeAnalysis, activity and detected-skill code with
+    ``POST /api/resumes``). The analysis the public response was built from is
+    handed over and persisted as-is, so the resume is analyzed **once** and the
+    Dashboard picks up the new resume, ATS score and analysis from its existing
+    queries.
+
+    Anonymous visitors are skipped entirely, and failures never change the
+    public result.
+    """
+    if not user:
+        return
+    try:
+        from werkzeug.datastructures import FileStorage
+
+        from services.resume_store import store_analyzed_resume
+
+        storage = FileStorage(io.BytesIO(pdf_bytes), filename=filename)
+        store_analyzed_resume(user, storage, target_role, result)
+    except Exception:  # never fail a public analysis over persistence
+        logger.warning("Could not save the resume to the user's vault",
+                       exc_info=True)
+        _rollback_quietly()
+
+
+def _rollback_quietly() -> None:
+    """Drop a failed save so a public request never leaves a partial write."""
+    try:
+        from models import db
+
+        db.session.rollback()
+    except Exception:  # pragma: no cover - rollback must never raise outward
+        logger.debug("Rollback after a failed save did not complete",
+                     exc_info=True)
+
+
 @app.post("/api/career-guide")
 def career_guide():
     if _rate_limited():
@@ -142,6 +211,11 @@ def career_guide():
     except Exception:
         logger.exception("Unexpected error in career guide")
         return _error_response("Something went wrong on our side. Please try again.", 500)
+    # Signed-in visitors keep this plan in their own account so the Dashboard,
+    # Roadmap page and gap analysis read the same stored roadmap. Anonymous
+    # visitors are unaffected (current_user() is None) and the public response
+    # above is returned unchanged either way.
+    _sync_career_plan_to_user(current_user(), data.get("target_role", ""))
     return jsonify({"success": True, "data": result})
 
 
@@ -183,6 +257,12 @@ def resume_analyzer():
         logger.exception("Unexpected error in resume analyzer")
         return _error_response("Something went wrong on our side. Please try again.", 500)
 
+    # Signed-in visitors keep this upload in their own vault (resume version,
+    # analysis, activity and detected skills) through the existing flow, so the
+    # Dashboard shows it immediately. Anonymous visitors are unaffected and the
+    # public response above is returned unchanged either way.
+    _sync_resume_to_user(current_user(), file_info["filename"], pdf_bytes,
+                         target_role, result)
     return jsonify({"success": True, "data": result})
 
 

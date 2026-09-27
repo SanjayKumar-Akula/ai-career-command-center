@@ -49,8 +49,12 @@ def latest_two_analyses(user):
     return (rows[0] if rows else None), (rows[1] if len(rows) > 1 else None)
 
 
-def upload_and_analyze(user, file_storage, target_role: str) -> dict:
-    """Validate → extract → next version → store → analyze → persist analysis."""
+def _store_resume_row(user, file_storage, target_role: str) -> Resume:
+    """Validate → extract → next version → store. Returns the stored row.
+
+    Shared by :func:`upload_and_analyze` and :func:`store_analyzed_resume` so
+    the two entry points can never drift apart on validation or versioning.
+    """
     target_role = clean_text(target_role, 80)
     if len(target_role) < 3:
         raise ResumeStoreError("Please enter a target role (e.g., Software Developer).")
@@ -85,9 +89,28 @@ def upload_and_analyze(user, file_storage, target_role: str) -> dict:
     )
     db.session.add(resume)
     db.session.commit()
+    return resume
 
+
+def upload_and_analyze(user, file_storage, target_role: str) -> dict:
+    """Validate → extract → next version → store → analyze → persist analysis."""
+    resume = _store_resume_row(user, file_storage, target_role)
     result = _run_analysis_and_side_effects(user, resume)
     return {"resume": resume.to_dict(include_detected=True), "analysis": result, }
+
+
+def store_analyzed_resume(user, file_storage, target_role: str, result: dict) -> dict:
+    """Store a resume whose analysis has **already** been computed.
+
+    Identical to :func:`upload_and_analyze` except that it persists the given
+    analysis instead of running ``analyze_resume`` a second time. Everything
+    else — validation, versioning, the ResumeAnalysis row, detected-skill
+    promotion, activity logging, notifications and the gap analysis — is the
+    same code path, so a resume analyzed once is stored exactly once.
+    """
+    resume = _store_resume_row(user, file_storage, target_role)
+    stored = _persist_and_sync(user, resume, result)
+    return {"resume": resume.to_dict(include_detected=True), "analysis": stored, }
 
 
 def _detect_and_store(resume: Resume) -> list:
@@ -127,7 +150,20 @@ def _promote_detected_skills(user, resume: Resume, detected: list) -> dict:
 
 
 def _run_analysis_and_side_effects(user, resume: Resume) -> dict:
-    """Persist the analysis, then log activity + notifications (best effort)."""
+    """Analyze the resume, persist it, then log activity + notifications."""
+    return _persist_and_sync(user, resume,
+                             analyze_resume(resume.extracted_text,
+                                            resume.target_role))
+
+
+def _persist_and_sync(user, resume: Resume, result: dict) -> dict:
+    """Persist an already-computed analysis, then the best-effort side effects.
+
+    This is the single body shared by every path that stores an analysis: an
+    authenticated upload, a re-analysis, and the public Resume Analyzer (which
+    hands over the result it has already computed). The analysis itself is never
+    run here, so no caller ever pays for a second ``analyze_resume`` call.
+    """
     from services.activity_service import (
         generate_gap_notification,
         generate_score_improvement_notification,
@@ -141,7 +177,7 @@ def _run_analysis_and_side_effects(user, resume: Resume) -> dict:
     if prior:
         previous_score = prior.ats_score
 
-    result = run_analysis(user, resume)
+    _persist_analysis_row(user, resume, result)
     # Additive only: the same key is present for uploads and re-analyses.
     result["skills_added"] = []
 
@@ -180,9 +216,13 @@ def _run_analysis_and_side_effects(user, resume: Resume) -> dict:
     result["detected_skills"] = load_json(resume.detected_skills, [])
     return result
 
-def run_analysis(user, resume: Resume) -> dict:
-    """Run the deterministic + AI analysis and persist it as a new row."""
-    result = analyze_resume(resume.extracted_text, resume.target_role)
+def _persist_analysis_row(user, resume: Resume, result: dict) -> None:
+    """Write an already-computed analysis onto the stored resume + new row.
+
+    Kept separate from :func:`run_analysis` so a caller that has *already* run
+    the analysis (the public Resume Analyzer) can persist that exact result
+    instead of paying for a second ``analyze_resume`` call.
+    """
     breakdown = result.get("score_breakdown", [])
 
     insights = {
@@ -216,6 +256,12 @@ def run_analysis(user, resume: Resume) -> dict:
     resume.target_role = result.get("target_role", resume.target_role)
     db.session.add(row)
     db.session.commit()
+
+
+def run_analysis(user, resume: Resume) -> dict:
+    """Run the deterministic + AI analysis and persist it as a new row."""
+    result = analyze_resume(resume.extracted_text, resume.target_role)
+    _persist_analysis_row(user, resume, result)
     return result
 
 FACTOR_LABELS = ("Keyword Match", "Skills Match", "Experience / Projects",
